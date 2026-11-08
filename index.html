@@ -237,6 +237,9 @@ button{cursor:pointer}
 }
 .autocarry{display:flex;align-items:center;gap:8px;flex-basis:100%;justify-content:center;font-size:.88rem;color:var(--muted);cursor:pointer}
 .autocarry input{width:18px;height:18px;accent-color:var(--accent)}
+.calbox{border-top:1px solid var(--line);padding-top:12px;display:grid;gap:8px}
+.calbox h3{margin:0;font-size:1rem}
+.calbox ol{margin:0;padding-inline-start:20px;display:grid;gap:4px}
 </style>
 </head>
 <body>
@@ -427,10 +430,25 @@ button{cursor:pointer}
           <button class="btn sm" type="button" id="syncNow">مزامنة الآن</button>
         </div>
         <p class="hint">احتفظ بالكود لنفسك: من يعرفه يستطيع رؤية مهامك.</p>
+        <div class="calbox">
+          <h3>📅 إظهار المهام في تقويم الهاتف</h3>
+          <p>تظهر مهامك بتواريخها وأوقاتها داخل تقويم Google، وبالتالي في أداة التقويم على الشاشة الرئيسية.</p>
+          <div class="row-btns">
+            <button class="btn sm primary" type="button" id="calGoogle">إضافة إلى تقويم Google</button>
+            <button class="btn sm" type="button" id="calCopy">نسخ رابط التقويم</button>
+          </div>
+          <ol class="hint">
+            <li>اضغط «إضافة إلى تقويم Google» ثم اختر «إضافة» (يُفضّل فتحه من متصفح Chrome بحساب Google نفسه الموجود على الهاتف).</li>
+            <li>في تطبيق تقويم Google: القائمة ☰ ← الإعدادات ← «أجندتي» ← فعّل «مزامنة».</li>
+            <li>إن كنت تستخدم تقويم سامسونج: افتح إدارة التقاويم وفعّل «أجندتي» تحت حساب Google.</li>
+          </ol>
+          <p class="hint">يحدّث Google التقويمات المشترَك فيها كل عدة ساعات، لذلك قد تتأخر التعديلات الجديدة في الظهور. التطبيق نفسه يبقى محدّثاً فوراً.</p>
+        </div>
         <button class="btn sm danger-link" type="button" id="syncOff">إلغاء الربط على هذا الجهاز</button>
       </div>
       <div id="syncSetup">
         <p>اربط أجهزتك لتظهر نفس المهام على الهاتف والكمبيوتر، وتتحدث تلقائياً عند وجود إنترنت. بدون إنترنت يستمر التطبيق بالعمل ويُرسل التعديلات عند عودة الاتصال.</p>
+        <p class="hint">لإظهار المهام في تقويم الهاتف وأداة الشاشة الرئيسية، فعّل الربط أولاً بإنشاء كود.</p>
         <button class="btn primary" type="button" id="syncCreate">هذا أول جهاز: أنشئ كود مزامنة</button>
         <div class="or">أو</div>
         <label for="syncInput">عندي كود من الجهاز الآخر</label>
@@ -988,7 +1006,7 @@ const sync=(()=>{
   function fmt(d){return d.toLocaleTimeString("ar-EG",{hour:"numeric",minute:"2-digit"})}
   function status(){
     const dot=$("#syncDot"),txt=$("#syncText"),btn=$("#syncOpen");
-    dot.className="dot"; btn.textContent=code?"إعدادات الربط":"ربط الهاتف والكمبيوتر";
+    dot.className="dot"; btn.textContent=code?"الربط والتقويم":"الربط والتقويم";
     if(!code){txt.textContent="المزامنة غير مفعّلة · المهام على هذا الجهاز فقط";return}
     if(busy){dot.classList.add("busy");txt.textContent="جارٍ المزامنة…";return}
     if(!navigator.onLine){dot.classList.add("busy");txt.textContent="بدون إنترنت · ستُرسل التعديلات عند عودة الاتصال"+(dirty.size?" ("+dirty.size+")":"");return}
@@ -1078,6 +1096,12 @@ const sync=(()=>{
     if(navigator.share){try{await navigator.share({title:"أجندتي",text,url:link()});return}catch(e){if(e&&e.name==="AbortError")return}}
     copy(link(),"تم نسخ رابط الربط، أرسله لنفسك وافتحه على الجهاز الآخر");
   };
+  const feedUrl=()=>SB_URL+"/functions/v1/agenda-ics?code="+encodeURIComponent(code);
+  $("#calGoogle").onclick=()=>{
+    const webcal=feedUrl().replace(/^https:/,"webcal:");
+    window.open("https://calendar.google.com/calendar/r?cid="+encodeURIComponent(webcal),"_blank","noopener");
+  };
+  $("#calCopy").onclick=()=>copy(feedUrl(),"تم نسخ رابط التقويم");
   $("#syncNow").onclick=()=>{run();toast("جارٍ المزامنة…")};
   $("#syncOff").onclick=()=>{
     if(!confirm("إلغاء الربط على هذا الجهاز؟ تبقى المهام محفوظة هنا لكن لن تتحدث مع الأجهزة الأخرى."))return;
