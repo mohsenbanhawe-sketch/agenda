@@ -291,11 +291,13 @@ button{cursor:pointer}
       <div class="row2">
         <div class="field"><label for="fContact" id="fContactLbl">الشخص / الجهة</label><input id="fContact" placeholder="الاسم أو الشركة"></div>
         <div class="field" id="wrapPhone"><label for="fPhone" id="fPhoneLbl">رقم الهاتف للاتصال</label>
-          <div style="display:flex;gap:6px;min-width:0"><input id="fPhone" type="tel" inputmode="tel" dir="ltr" autocomplete="tel" placeholder="01xxxxxxxxx أو ‎+9665xxxxxxxx" style="flex:1;min-width:0">
-            <button type="button" class="btn sm" id="pickContact" hidden title="اختيار من جهات الاتصال"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><circle cx="12" cy="10" r="3"/><path d="M7.5 18a4.5 4.5 0 019 0"/></svg>جهات الاتصال</button>
-            <button type="button" class="btn sm" id="pastePhone" hidden title="لصق الرقم المنسوخ">لصق</button>
+          <input id="fPhone" type="tel" inputmode="tel" dir="ltr" autocomplete="tel" placeholder="01xxxxxxxxx أو ‎+9665xxxxxxxx">
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button type="button" class="btn sm" id="pickContact" style="border-color:var(--ok);color:var(--ok);background:var(--ok-soft);font-weight:600" title="اختيار رقم من جهات الاتصال"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><circle cx="12" cy="10" r="3"/><path d="M7.5 18a4.5 4.5 0 019 0"/></svg>إضافة رقم من جهات الاتصال</button>
+            <button type="button" class="btn sm" id="pastePhone" title="لصق الرقم المنسوخ"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/></svg>لصق رقم منسوخ</button>
           </div>
           <div class="pills" id="telChoices" hidden></div>
+          <div class="hint" id="contactHelp" hidden style="background:var(--warn-soft);color:var(--fg);border-radius:8px;padding:8px 10px;line-height:1.7"></div>
         </div>
         <div class="field" id="wrapPlace"><label for="fPlace">مكان المقابلة</label><input id="fPlace" placeholder="المكتب، الموقع، أونلاين…"></div>
       </div>
@@ -656,7 +658,7 @@ function openForm(t){
   $("#fDate").value=t?t.date:state.date; $("#fTime").value=t?t.time||"":""; $("#fPriority").value=t?t.priority||"normal":"normal";
   $("#fRemind").value=t?(t.remind||"at"):"at";
   $("#fNotes").value=t?t.notes||"":""; $("#fDecision").value=t?t.decision||"":""; $("#fFollow").value=t?t.followUp||"":""; $("#fAutoFollow").checked=false;
-  $("#delBtn").hidden=!t; $("#delConfirm").hidden=true;
+  $("#delBtn").hidden=!t; $("#delConfirm").hidden=true; $("#contactHelp").hidden=true; $("#telChoices").hidden=true;
   syncForm(); $("#overlay").hidden=false; setTimeout(()=>$("#fTitle").focus(),30);
 }
 function closeForm(){$("#overlay").hidden=true;editing=null}
@@ -667,8 +669,19 @@ $("#fFollow").addEventListener("change",e=>{if(e.target.value&&!f.action){f.acti
 /* phone from the device: contact picker (Android Chrome) and paste (all phones) */
 const cleanTel=v=>String(v||"").replace(/[^\d+]/g,"");
 function setPhone(v){$("#fPhone").value=cleanTel(v);$("#telChoices").hidden=true}
-if("contacts" in navigator&&navigator.contacts&&navigator.contacts.select)$("#pickContact").hidden=false;
+const canPick=()=>!!(navigator.contacts&&navigator.contacts.select);
+function contactHelp(){
+  const ua=navigator.userAgent, ios=/iPhone|iPad|iPod/.test(ua), samsung=/SamsungBrowser/.test(ua);
+  const h=$("#contactHelp");
+  h.innerHTML=ios
+    ? "الآيفون لا يسمح للتطبيقات المفتوحة من المتصفح بفتح جهات الاتصال.<br>افتح <b>جهات الاتصال</b>، اضغط مطولاً على الرقم واختر <b>نسخ</b>، ثم ارجع واضغط <b>لصق رقم منسوخ</b>."
+    : samsung
+      ? "متصفح سامسونج لا يدعم فتح جهات الاتصال.<br>افتح رابط التطبيق من <b>Google Chrome</b> وثبّته منه ليعمل هذا الزر، أو انسخ الرقم من جهات الاتصال واضغط <b>لصق رقم منسوخ</b>."
+      : "هذا المتصفح لا يدعم فتح جهات الاتصال.<br>استخدم <b>Google Chrome</b> على أندرويد، أو انسخ الرقم من جهات الاتصال واضغط <b>لصق رقم منسوخ</b>.";
+  h.hidden=false;
+}
 $("#pickContact").onclick=async()=>{
+  if(!canPick()){contactHelp();return}
   try{
     const res=await navigator.contacts.select(["name","tel"],{multiple:false});
     if(!res||!res.length)return;
@@ -679,12 +692,12 @@ $("#pickContact").onclick=async()=>{
     const box=$("#telChoices");
     box.innerHTML=tels.map(t=>`<button type="button" data-tel="${esc(t)}" dir="ltr">${esc(t)}</button>`).join("");
     box.hidden=false; toast("اختر الرقم المطلوب");
-  }catch(e){toast("تعذّر فتح جهات الاتصال")}
+  }catch(e){if(e&&e.name==="InvalidStateError")toast("قائمة جهات الاتصال مفتوحة بالفعل");else contactHelp()}
 };
 $("#telChoices").addEventListener("click",e=>{const b=e.target.closest("[data-tel]");if(b){setPhone(b.dataset.tel);toast("تمت إضافة الرقم")}});
-if(navigator.clipboard&&navigator.clipboard.readText)$("#pastePhone").hidden=false;
 $("#pastePhone").onclick=async()=>{
-  try{const t=cleanTel(await navigator.clipboard.readText());if(t.replace("+","").length>=5){setPhone(t);toast("تم لصق الرقم")}else toast("لا يوجد رقم منسوخ")}
+  try{
+    if(!(navigator.clipboard&&navigator.clipboard.readText))throw 0;const t=cleanTel(await navigator.clipboard.readText());if(t.replace("+","").length>=5){setPhone(t);toast("تم لصق الرقم")}else toast("لا يوجد رقم منسوخ")}
   catch(e){$("#fPhone").focus();toast("اضغط مطولاً داخل الخانة واختر لصق")}
 };
 $("#delBtn").onclick=()=>{$("#delConfirm").hidden=false;$("#delConfirm").scrollIntoView({block:"nearest"})};
