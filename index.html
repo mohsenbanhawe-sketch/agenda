@@ -44,6 +44,8 @@ body{margin:0}
 [hidden]{display:none!important}
 .backup{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center}
 body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.6}
+.wrap>*{min-width:0}
+html,body{overflow-x:hidden}
 .wrap{max-width:1180px;margin:0 auto;padding-block:20px 60px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:18px}
 button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
@@ -59,6 +61,7 @@ button{cursor:pointer}
 .datebar button:hover{background:var(--surface-2)}
 .datebar .today{background:var(--accent-soft);color:var(--accent);font-weight:600}
 .datebar input{border:0;background:transparent;padding:4px 6px;min-width:0;width:150px}
+@media (max-width:560px){.top{display:grid}.datebar{width:100%;justify-content:space-between;border-radius:14px;flex-wrap:wrap}.datebar input{flex:1;width:auto;min-width:110px}.dayname{order:-1;flex-basis:100%;text-align:center;padding-top:2px}.brand p{font-size:.85rem}}
 .dayname{font-family:var(--f-display);font-size:1.05rem;color:var(--accent);padding-inline:6px;white-space:nowrap}
 
 /* KPI */
@@ -145,18 +148,22 @@ button{cursor:pointer}
 
 /* modal */
 .overlay{position:fixed;inset:0;background:rgba(8,18,22,.5);display:grid;place-items:center;z-index:50;padding:16px;padding-top:max(16px,env(safe-area-inset-top,0px));padding-bottom:max(16px,env(safe-area-inset-bottom,0px))}
-.modal{background:var(--surface);border-radius:16px;width:min(640px,100%);max-height:100%;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.25);display:grid}
+.modal{background:var(--surface);border-radius:16px;width:min(640px,100%);min-width:0;max-height:100%;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.25);display:grid}
 .modal header{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--surface);z-index:1}
 .modal header h2{font-family:var(--f-display);margin:0;font-size:1.25rem}
 .modal form{padding:16px 20px;display:grid;gap:14px}
+@media (max-width:560px){.overlay{padding:0;padding-top:max(8px,env(safe-area-inset-top,0px));place-items:end stretch;grid-template-columns:minmax(0,1fr)}.modal{width:100%;border-radius:18px 18px 0 0;max-height:100%}.modal header,.modal form,.modal footer{padding-left:16px;padding-right:16px}.modal footer{padding-bottom:max(14px,env(safe-area-inset-bottom,0px))}.modal footer .btn{flex:1;justify-content:center}.modal footer span{display:none}}
 .modal footer{display:flex;gap:8px;justify-content:flex-start;padding:14px 20px;border-top:1px solid var(--line);position:sticky;bottom:0;background:var(--surface);flex-wrap:wrap}
 .field{display:grid;gap:5px;min-width:0}
 .field>label,.field>.lbl{font-size:.85rem;font-weight:600;color:var(--muted)}
 .field input,.field select,.field textarea{background:var(--surface-2);border:1px solid var(--line);border-radius:9px;padding:8px 11px;width:100%}
 .field textarea{resize:vertical;min-height:70px}
-.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.row3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-@media (max-width:520px){.row2,.row3{grid-template-columns:1fr}}
+.row2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+.row3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media (max-width:520px){.row2,.row3{grid-template-columns:minmax(0,1fr)}}
+.modal form>*,.field>*{min-width:0}
+.typepick{grid-template-columns:repeat(3,minmax(0,1fr))}
+.pills button{max-width:100%}
 .typepick{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .typepick button{border:1.5px solid var(--line);background:var(--surface-2);border-radius:10px;padding:10px 6px;display:grid;justify-items:center;gap:4px;font-weight:600;color:var(--muted)}
 .typepick button[aria-pressed="true"]{border-color:var(--c);background:var(--cs);color:var(--c)}
