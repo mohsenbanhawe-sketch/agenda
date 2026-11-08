@@ -211,6 +211,30 @@ button{cursor:pointer}
 .hint{font-size:.78rem;color:var(--muted)}
 @media (prefers-reduced-motion:no-preference){.rem{animation:ring .5s ease-out}@keyframes ring{0%{transform:translateX(-14px);opacity:0}60%{transform:translateX(3px)}}}
 @media (prefers-reduced-motion:no-preference){.task{transition:opacity .2s}.overlay .modal{animation:pop .18s ease-out}@keyframes pop{from{transform:translateY(8px);opacity:.6}}}
+.stats>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--muted);font-size:.9rem;font-weight:600}
+.stats>summary::-webkit-details-marker{display:none}
+.stats>summary::before{content:"◂";transition:transform .15s}
+.stats[open]>summary{margin-bottom:12px}.stats[open]>summary::before{transform:rotate(-90deg)}
+@media (max-width:560px){
+  .wrap{gap:12px;padding-top:12px}
+  .brand p{display:none}
+  .brand h1{font-size:1.25rem}
+  .datebar{padding:3px;gap:4px}
+  .datebar input{min-width:0;font-size:.9rem}
+  .datebar button{min-width:0}
+  .syncbar{margin:0;padding:6px 10px;font-size:12px}
+  .syncbar .btn{padding:4px 10px;font-size:12px}
+  .kpis{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+  .kpi{padding:8px 4px;flex-direction:column;gap:2px;text-align:center;justify-content:center}
+  .kpi .ico,.kpi .ring{display:none}
+  .kpi .v{font-size:1.3rem}
+  .kpi .l{font-size:.7rem;line-height:1.3}
+  .toolbar{gap:8px}
+  .toolbar #addBtn{order:-1;width:100%;justify-content:center;padding:12px;font-size:1rem}
+  .toolbar .seg{flex-wrap:nowrap;overflow-x:auto;max-width:100%}
+  .toolbar .seg button{white-space:nowrap;padding:6px 10px}
+  .search{min-width:0;flex:1 1 100%}
+}
 </style>
 </head>
 <body>
@@ -243,22 +267,6 @@ button{cursor:pointer}
     <div class="kpi"><svg class="ring" viewBox="0 0 54 54" aria-hidden="true"><circle cx="27" cy="27" r="22" fill="none" stroke="var(--idle-soft)" stroke-width="7"/><circle id="ringArc" cx="27" cy="27" r="22" fill="none" stroke="var(--accent)" stroke-width="7" stroke-linecap="round" stroke-dasharray="0 200" transform="rotate(-90 27 27)"/></svg><div><div class="v num" id="kRate">0%</div><div class="l">نسبة الإنجاز</div></div></div>
   </section>
 
-  <section class="panels">
-    <div class="panel">
-      <h2>نتائج الاتصالات <small id="callsCount"></small></h2>
-      <div class="stack" id="callStack"></div>
-      <div class="legend" id="callLegend"></div>
-    </div>
-    <div class="panel">
-      <h2>حسب النوع <small>منتهية / الكل</small></h2>
-      <div class="types" id="typeTiles"></div>
-    </div>
-    <div class="panel week">
-      <h2>آخر 7 أيام <small>المنتهية من الإجمالي</small></h2>
-      <div id="weekChart"></div>
-    </div>
-  </section>
-
   <div class="carry" id="carry" hidden>
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--warn)"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L2 18a2 2 0 001.7 3h16.6a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg>
     <span>لديك <strong class="num" id="carryCount">0</strong> مهام معلقة من أيام سابقة.</span>
@@ -285,6 +293,24 @@ button{cursor:pointer}
 
   <div id="listTitle" class="notice" hidden></div>
   <section class="list" id="list" aria-live="polite"></section>
+  <details class="stats" id="statsBox">
+    <summary>إحصائيات اليوم وآخر 7 أيام</summary>
+  <section class="panels">
+    <div class="panel">
+      <h2>نتائج الاتصالات <small id="callsCount"></small></h2>
+      <div class="stack" id="callStack"></div>
+      <div class="legend" id="callLegend"></div>
+    </div>
+    <div class="panel">
+      <h2>حسب النوع <small>منتهية / الكل</small></h2>
+      <div class="types" id="typeTiles"></div>
+    </div>
+    <div class="panel week">
+      <h2>آخر 7 أيام <small>المنتهية من الإجمالي</small></h2>
+      <div id="weekChart"></div>
+    </div>
+  </section>
+  </details>
   <p class="notice" id="storeNote">جارٍ تحميل مهامك…</p>
   <div class="backup">
     <button class="btn sm" id="exportBtn">حفظ نسخة احتياطية</button>
@@ -992,6 +1018,7 @@ const sync=(()=>{
   return {start,run};
 })();
 
+try{if(matchMedia("(min-width:761px)").matches)$("#statsBox").open=true}catch(e){}
 render();
 store.init();
 sync.start();
