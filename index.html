@@ -1,0 +1,786 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f5c63">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="أجندتي">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>أجندة المتابعة اليومية</title>
+<style>
+/* Layout: a working desk — date strip on top, summary tiles, three insight panels, then the day's task ledger */
+:root{
+  --bg:#eef1f3; --surface:#ffffff; --surface-2:#f6f8f9; --line:#dbe1e5; --fg:#16232b; --muted:#5b6b75;
+  --accent:#0f5c63; --accent-soft:#d9ecec; --accent-fg:#ffffff;
+  --call:#2f5fb3; --call-soft:#e3ebf9; --meet:#7a4bb0; --meet-soft:#efe6f8; --proj:#b0631d; --proj-soft:#f8ebde;
+  --ok:#21794a; --ok-soft:#dcf1e4; --warn:#a86a00; --warn-soft:#fbefd6; --bad:#b3362f; --bad-soft:#f8e0de; --idle:#6b7780; --idle-soft:#e8ecee;
+  --shadow:0 1px 2px rgba(16,35,43,.06),0 4px 14px rgba(16,35,43,.05);
+  --f-display:"Reem Kufi","IBM Plex Sans Arabic","Noto Kufi Arabic","Segoe UI",Tahoma,sans-serif;
+  --f-body:"IBM Plex Sans Arabic","Noto Sans Arabic","Segoe UI",Tahoma,system-ui,sans-serif;
+  --r:12px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1619; --surface:#172126; --surface-2:#1c282e; --line:#2a3a41; --fg:#e4ecef; --muted:#97a8b0;
+  --accent:#5cc0c4; --accent-soft:#18383b; --accent-fg:#06272a;
+  --call:#7fa6ee; --call-soft:#1d2b45; --meet:#b994e6; --meet-soft:#2c2140; --proj:#e6a066; --proj-soft:#3a2818;
+  --ok:#5fd08f; --ok-soft:#173726; --warn:#f0bb52; --warn-soft:#3b2d10; --bad:#f08a82; --bad-soft:#3e1d1b; --idle:#9aa7ae; --idle-soft:#26333a;
+  --shadow:0 1px 2px rgba(0,0,0,.3); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1619; --surface:#172126; --surface-2:#1c282e; --line:#2a3a41; --fg:#e4ecef; --muted:#97a8b0;
+  --accent:#5cc0c4; --accent-soft:#18383b; --accent-fg:#06272a;
+  --call:#7fa6ee; --call-soft:#1d2b45; --meet:#b994e6; --meet-soft:#2c2140; --proj:#e6a066; --proj-soft:#3a2818;
+  --ok:#5fd08f; --ok-soft:#173726; --warn:#f0bb52; --warn-soft:#3b2d10; --bad:#f08a82; --bad-soft:#3e1d1b; --idle:#9aa7ae; --idle-soft:#26333a;
+  --shadow:0 1px 2px rgba(0,0,0,.3); color-scheme:dark}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+[hidden]{display:none!important}
+.backup{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.6}
+.wrap{max-width:1180px;margin:0 auto;padding-block:20px 60px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:18px}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+
+/* header */
+.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px}
+.brand h1{font-family:var(--f-display);font-weight:700;font-size:clamp(1.5rem,3.2vw,2rem);margin:0;line-height:1.2;text-wrap:balance}
+.brand p{margin:2px 0 0;color:var(--muted);font-size:.9rem}
+.datebar{display:flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px;box-shadow:var(--shadow)}
+.datebar button{border:0;background:transparent;border-radius:999px;padding:6px 12px;color:var(--fg)}
+.datebar button:hover{background:var(--surface-2)}
+.datebar .today{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.datebar input{border:0;background:transparent;padding:4px 6px;min-width:0;width:150px}
+.dayname{font-family:var(--f-display);font-size:1.05rem;color:var(--accent);padding-inline:6px;white-space:nowrap}
+
+/* KPI */
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;display:flex;align-items:center;gap:12px;min-width:0}
+.kpi .v{font-family:var(--f-display);font-size:1.9rem;line-height:1}
+.kpi .l{color:var(--muted);font-size:.85rem}
+.kpi .ico{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;flex:none}
+.ring{width:54px;height:54px;flex:none}
+@media (max-width:760px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* panels */
+.panels{display:grid;grid-template-columns:1.2fr 1fr 1.2fr;gap:12px}
+@media (max-width:900px){.panels{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;min-width:0}
+.panel h2{font-size:.95rem;margin:0 0 10px;font-weight:600;display:flex;justify-content:space-between;gap:8px}
+.panel h2 small{color:var(--muted);font-weight:400}
+.stack{display:flex;height:12px;border-radius:999px;overflow:hidden;background:var(--idle-soft);margin-bottom:12px}
+.stack span{display:block;height:100%}
+.legend{display:grid;gap:6px}
+.legend div{display:flex;align-items:center;gap:8px;font-size:.88rem}
+.legend b{margin-inline-start:auto;font-variant-numeric:tabular-nums}
+.dot{width:10px;height:10px;border-radius:50%;flex:none}
+.types{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.type-tile{border-radius:10px;padding:10px;text-align:center}
+.type-tile .v{font-family:var(--f-display);font-size:1.5rem;line-height:1.1}
+.type-tile .l{font-size:.8rem}
+.type-tile .s{font-size:.75rem;opacity:.85}
+.week svg{width:100%;height:auto;display:block}
+
+/* carry over */
+.carry{display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:var(--warn-soft);color:var(--fg);border:1px solid color-mix(in srgb,var(--warn) 35%,transparent);border-radius:var(--r);padding:10px 14px}
+.carry strong{color:var(--warn)}
+.carry .sp{flex:1}
+
+/* toolbar */
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.seg{display:inline-flex;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px;flex-wrap:wrap}
+.seg button{border:0;background:transparent;padding:6px 12px;border-radius:7px;color:var(--muted);font-size:.9rem}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg);font-weight:600}
+.search{flex:1;min-width:180px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 12px}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 14px;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{background:var(--surface-2)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg);font-weight:600}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn.danger{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 40%,transparent)}
+.btn.sm{padding:5px 10px;font-size:.85rem}
+
+/* list */
+.list{display:grid;gap:10px}
+.task{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:start;border-inline-start:4px solid var(--tc)}
+.task.done{opacity:.86}
+.task.done .t-title{text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--fg) 40%,transparent)}
+.t-ico{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;background:var(--tcs);color:var(--tc)}
+.t-body{min-width:0;display:grid;gap:6px}
+.t-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.t-title{font-weight:600;font-size:1rem;overflow-wrap:anywhere}
+.chip{font-size:.75rem;border-radius:999px;padding:1px 9px;white-space:nowrap;font-weight:500}
+.meta{display:flex;flex-wrap:wrap;gap:4px 14px;color:var(--muted);font-size:.85rem}
+.meta span{display:inline-flex;align-items:center;gap:4px}
+.copy{border:0;background:transparent;color:var(--accent);padding:0 2px;font-size:.8rem;text-decoration:underline}
+.decision{background:var(--accent-soft);border-radius:8px;padding:8px 10px;font-size:.9rem;overflow-wrap:anywhere}
+.decision .dl{font-weight:600;color:var(--accent);margin-inline-end:6px}
+.decision.empty{background:transparent;border:1px dashed var(--line);color:var(--muted)}
+.decision.empty button{border:0;background:none;color:var(--accent);text-decoration:underline;padding:0}
+.quick{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.quick .ql{font-size:.8rem;color:var(--muted)}
+.qb{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:2px 10px;font-size:.8rem;color:var(--muted)}
+.qb[aria-pressed="true"]{color:var(--c);background:var(--cs);border-color:var(--c);font-weight:600}
+.t-side{display:grid;gap:6px;justify-items:end}
+.status{border:0;border-radius:999px;padding:5px 12px;font-size:.82rem;font-weight:600;display:inline-flex;gap:5px;align-items:center;white-space:nowrap}
+.status.pending{background:var(--warn-soft);color:var(--warn)}
+.status.done{background:var(--ok-soft);color:var(--ok)}
+.icon-btns{display:flex;gap:2px}
+.icon-btns button{border:0;background:transparent;color:var(--muted);border-radius:8px;width:32px;height:32px;display:grid;place-items:center}
+.icon-btns button:hover{background:var(--surface-2);color:var(--fg)}
+@media (max-width:560px){
+  .task{grid-template-columns:auto 1fr}
+  .t-side{grid-column:1/-1;grid-template-columns:auto auto;justify-content:space-between;align-items:center}
+}
+.empty-state{background:var(--surface);border:1px dashed var(--line);border-radius:var(--r);padding:34px 20px;text-align:center;color:var(--muted)}
+.empty-state h3{font-family:var(--f-display);color:var(--fg);margin:0 0 6px;font-size:1.2rem}
+.notice{font-size:.85rem;color:var(--muted);text-align:center}
+
+/* modal */
+.overlay{position:fixed;inset:0;background:rgba(8,18,22,.5);display:grid;place-items:center;z-index:50;padding:16px;padding-top:max(16px,env(safe-area-inset-top,0px));padding-bottom:max(16px,env(safe-area-inset-bottom,0px))}
+.modal{background:var(--surface);border-radius:16px;width:min(640px,100%);max-height:100%;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.25);display:grid}
+.modal header{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--surface);z-index:1}
+.modal header h2{font-family:var(--f-display);margin:0;font-size:1.25rem}
+.modal form{padding:16px 20px;display:grid;gap:14px}
+.modal footer{display:flex;gap:8px;justify-content:flex-start;padding:14px 20px;border-top:1px solid var(--line);position:sticky;bottom:0;background:var(--surface);flex-wrap:wrap}
+.field{display:grid;gap:5px;min-width:0}
+.field>label,.field>.lbl{font-size:.85rem;font-weight:600;color:var(--muted)}
+.field input,.field select,.field textarea{background:var(--surface-2);border:1px solid var(--line);border-radius:9px;padding:8px 11px;width:100%}
+.field textarea{resize:vertical;min-height:70px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.row3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media (max-width:520px){.row2,.row3{grid-template-columns:1fr}}
+.typepick{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.typepick button{border:1.5px solid var(--line);background:var(--surface-2);border-radius:10px;padding:10px 6px;display:grid;justify-items:center;gap:4px;font-weight:600;color:var(--muted)}
+.typepick button[aria-pressed="true"]{border-color:var(--c);background:var(--cs);color:var(--c)}
+.pills{display:flex;flex-wrap:wrap;gap:6px}
+.pills button{border:1.5px solid var(--line);background:var(--surface-2);border-radius:999px;padding:5px 12px;font-size:.85rem;color:var(--muted)}
+.pills button[aria-pressed="true"]{border-color:var(--c,var(--accent));background:var(--cs,var(--accent-soft));color:var(--c,var(--accent));font-weight:600}
+.decision-box{border:1.5px solid var(--accent);border-radius:12px;padding:12px;display:grid;gap:10px;background:color-mix(in srgb,var(--accent-soft) 45%,transparent)}
+.decision-box h3{margin:0;font-size:.95rem;color:var(--accent)}
+.check{display:flex;align-items:center;gap:8px;font-size:.88rem}
+.confirm{background:var(--bad-soft);border-radius:10px;padding:10px 12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.toast{position:fixed;bottom:max(18px,calc(env(safe-area-inset-bottom,0px) + 12px));left:50%;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:9px 18px;border-radius:999px;font-size:.9rem;z-index:60;box-shadow:var(--shadow)}
+/* dial */
+.dial{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.callbtn{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:6px 14px;font-weight:600;font-size:.88rem;text-decoration:none;border:1.5px solid transparent;line-height:1.2}
+.callbtn.tel{background:var(--ok);color:var(--bg)}
+.callbtn.tel:hover{filter:brightness(1.08)}
+.callbtn.wa{background:var(--ok-soft);color:var(--ok);border-color:color-mix(in srgb,var(--ok) 35%,transparent)}
+.dial .no{font-variant-numeric:tabular-nums;color:var(--muted);font-size:.88rem;user-select:all}
+/* reminders */
+.reminders{position:fixed;top:calc(env(safe-area-inset-top,0px) + 12px);left:max(12px,env(safe-area-inset-left,0px));width:min(380px,calc(100% - 24px));display:grid;gap:10px;z-index:40;max-height:calc(100% - 24px);overflow:auto}
+.rem{background:var(--surface);border:1px solid var(--line);border-inline-start:5px solid var(--warn);border-radius:14px;box-shadow:0 10px 30px rgba(8,18,22,.18);padding:12px 14px;display:grid;gap:8px}
+.rem.late{border-inline-start-color:var(--bad)}
+.rem-h{display:flex;align-items:center;gap:8px;font-size:.8rem;color:var(--muted)}
+.rem-h .bell{color:var(--warn)}
+.rem.late .rem-h .bell{color:var(--bad)}
+.rem-t{font-weight:600;overflow-wrap:anywhere}
+.rem-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.rem-row .lbl{font-size:.8rem;color:var(--muted)}
+.snz{border:1px solid var(--line);background:var(--surface-2);border-radius:999px;padding:3px 10px;font-size:.82rem}
+.snz:hover{border-color:var(--warn);color:var(--warn)}
+.bell-toggle[aria-pressed="false"]{opacity:.55}
+.hint{font-size:.78rem;color:var(--muted)}
+@media (prefers-reduced-motion:no-preference){.rem{animation:ring .5s ease-out}@keyframes ring{0%{transform:translateX(-14px);opacity:0}60%{transform:translateX(3px)}}}
+@media (prefers-reduced-motion:no-preference){.task{transition:opacity .2s}.overlay .modal{animation:pop .18s ease-out}@keyframes pop{from{transform:translateY(8px);opacity:.6}}}
+</style>
+</head>
+<body>
+
+
+<div class="wrap" dir="rtl" lang="ar">
+  <header class="top">
+    <div class="brand">
+      <h1>أجندة المتابعة اليومية</h1>
+      <p>سجّل مهام الصباح، تابع الاتصالات والمقابلات وأعمال المشروعات، ودوّن قرارك في كل مهمة.</p>
+    </div>
+    <div class="datebar" role="group" aria-label="اختيار اليوم">
+      <button id="prevDay" aria-label="اليوم السابق">→</button>
+      <span class="dayname" id="dayName"></span>
+      <input type="date" id="dateInput" aria-label="التاريخ">
+      <button id="todayBtn" class="today">اليوم</button>
+      <button id="nextDay" aria-label="اليوم التالي">←</button>
+      <button id="soundBtn" class="bell-toggle" aria-pressed="true" title="صوت التذكير" aria-label="صوت التذكير"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg></button>
+    </div>
+  </header>
+
+  <section class="kpis" aria-label="ملخص اليوم">
+    <div class="kpi"><div class="ico" style="background:var(--accent-soft);color:var(--accent)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></div><div><div class="v num" id="kTotal">0</div><div class="l">مهام اليوم</div></div></div>
+    <div class="kpi"><div class="ico" style="background:var(--ok-soft);color:var(--ok)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l5 5 9-10"/></svg></div><div><div class="v num" id="kDone">0</div><div class="l">منتهية</div></div></div>
+    <div class="kpi"><div class="ico" style="background:var(--warn-soft);color:var(--warn)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div><div><div class="v num" id="kPending">0</div><div class="l">معلقة</div></div></div>
+    <div class="kpi"><svg class="ring" viewBox="0 0 54 54" aria-hidden="true"><circle cx="27" cy="27" r="22" fill="none" stroke="var(--idle-soft)" stroke-width="7"/><circle id="ringArc" cx="27" cy="27" r="22" fill="none" stroke="var(--accent)" stroke-width="7" stroke-linecap="round" stroke-dasharray="0 200" transform="rotate(-90 27 27)"/></svg><div><div class="v num" id="kRate">0%</div><div class="l">نسبة الإنجاز</div></div></div>
+  </section>
+
+  <section class="panels">
+    <div class="panel">
+      <h2>نتائج الاتصالات <small id="callsCount"></small></h2>
+      <div class="stack" id="callStack"></div>
+      <div class="legend" id="callLegend"></div>
+    </div>
+    <div class="panel">
+      <h2>حسب النوع <small>منتهية / الكل</small></h2>
+      <div class="types" id="typeTiles"></div>
+    </div>
+    <div class="panel week">
+      <h2>آخر 7 أيام <small>المنتهية من الإجمالي</small></h2>
+      <div id="weekChart"></div>
+    </div>
+  </section>
+
+  <div class="carry" id="carry" hidden>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--warn)"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L2 18a2 2 0 001.7 3h16.6a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg>
+    <span>لديك <strong class="num" id="carryCount">0</strong> مهام معلقة من أيام سابقة.</span>
+    <span class="sp"></span>
+    <button class="btn sm" id="showCarry">عرضها</button>
+    <button class="btn sm primary" id="moveCarry">نقلها إلى اليوم</button>
+  </div>
+
+  <section class="toolbar" aria-label="تصفية المهام">
+    <div class="seg" id="typeFilter">
+      <button data-v="all" aria-pressed="true">الكل</button>
+      <button data-v="call" aria-pressed="false">اتصالات</button>
+      <button data-v="meeting" aria-pressed="false">مقابلات</button>
+      <button data-v="project" aria-pressed="false">إعداد مشروع</button>
+    </div>
+    <div class="seg" id="statusFilter">
+      <button data-v="all" aria-pressed="true">كل الحالات</button>
+      <button data-v="pending" aria-pressed="false">معلقة</button>
+      <button data-v="done" aria-pressed="false">منتهية</button>
+    </div>
+    <input class="search" id="search" type="search" placeholder="ابحث في المهام والأسماء والقرارات…">
+    <button class="btn primary" id="addBtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M12 5v14M5 12h14"/></svg>مهمة جديدة</button>
+  </section>
+
+  <div id="listTitle" class="notice" hidden></div>
+  <section class="list" id="list" aria-live="polite"></section>
+  <p class="notice" id="storeNote">جارٍ تحميل مهامك…</p>
+  <div class="backup">
+    <button class="btn sm" id="exportBtn">حفظ نسخة احتياطية</button>
+    <button class="btn sm" id="importBtn">استرجاع نسخة احتياطية</button>
+    <input type="file" id="importFile" accept=".json,application/json" hidden>
+  </div>
+</div>
+
+<div class="overlay" id="overlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+    <header><h2 id="mTitle">مهمة جديدة</h2><button class="btn sm" type="button" id="mClose" aria-label="إغلاق">✕</button></header>
+    <form id="taskForm" autocomplete="off">
+      <div class="field"><span class="lbl">نوع المهمة</span>
+        <div class="typepick" id="fType">
+          <button type="button" data-v="call" style="--c:var(--call);--cs:var(--call-soft)"></button>
+          <button type="button" data-v="meeting" style="--c:var(--meet);--cs:var(--meet-soft)"></button>
+          <button type="button" data-v="project" style="--c:var(--proj);--cs:var(--proj-soft)"></button>
+        </div>
+      </div>
+      <div class="field"><label for="fTitle">المهمة</label><input id="fTitle" required placeholder="مثال: الاتصال بالمهندس أحمد بخصوص الرسومات التنفيذية"></div>
+      <div class="row2">
+        <div class="field"><label for="fContact" id="fContactLbl">الشخص / الجهة</label><input id="fContact" placeholder="الاسم أو الشركة"></div>
+        <div class="field" id="wrapPhone"><label for="fPhone" id="fPhoneLbl">رقم الهاتف للاتصال</label><input id="fPhone" type="tel" inputmode="tel" dir="ltr" placeholder="01xxxxxxxxx أو ‎+9665xxxxxxxx"></div>
+        <div class="field" id="wrapPlace"><label for="fPlace">مكان المقابلة</label><input id="fPlace" placeholder="المكتب، الموقع، أونلاين…"></div>
+      </div>
+      <div class="field" id="wrapProject"><label for="fProject">المشروع</label><input id="fProject" list="projectList" placeholder="اسم المشروع"><datalist id="projectList"></datalist></div>
+      <div class="field" id="wrapWork"><span class="lbl">نوع العمل</span>
+        <div class="pills" id="fWork">
+          <button type="button" data-v="drawings">رسومات</button>
+          <button type="button" data-v="study">إعداد دراسة</button>
+          <button type="button" data-v="quote">عرض سعر / مقايسة</button>
+          <button type="button" data-v="report">تقرير</button>
+          <button type="button" data-v="other">أخرى</button>
+        </div>
+      </div>
+      <div class="row3">
+        <div class="field"><label for="fDate">التاريخ</label><input id="fDate" type="date" required></div>
+        <div class="field"><label for="fTime">الوقت</label><input id="fTime" type="time"></div>
+        <div class="field"><label for="fPriority">الأولوية</label>
+          <select id="fPriority"><option value="normal">عادية</option><option value="high">مهمة</option><option value="urgent">عاجلة</option></select></div>
+      </div>
+      <div class="field"><label for="fRemind">التذكير إذا لم تنتهِ المهمة</label>
+        <select id="fRemind">
+          <option value="at">عند موعد المهمة</option>
+          <option value="b10">قبل الموعد بـ 10 دقائق</option>
+          <option value="b30">قبل الموعد بـ 30 دقيقة</option>
+          <option value="none">بدون تذكير</option>
+        </select>
+        <span class="hint">يظهر التنبيه ما دامت المهمة معلقة، ويمكنك تأجيله (غفوة) حتى 30 دقيقة. المهمة بدون وقت يُذكَّر بها الساعة 12 ظهراً.</span>
+      </div>
+      <div class="field"><span class="lbl">حالة المهمة</span>
+        <div class="pills" id="fStatus">
+          <button type="button" data-v="pending" style="--c:var(--warn);--cs:var(--warn-soft)">معلقة</button>
+          <button type="button" data-v="done" style="--c:var(--ok);--cs:var(--ok-soft)">انتهت</button>
+        </div>
+      </div>
+      <div class="field" id="wrapResult"><span class="lbl">نتيجة الاتصال</span>
+        <div class="pills" id="fResult"></div>
+      </div>
+      <div class="field"><label for="fNotes">ملاحظات</label><textarea id="fNotes" rows="2" placeholder="تفاصيل إضافية"></textarea></div>
+      <div class="decision-box">
+        <h3>القرار المتخذ نحو المهمة</h3>
+        <div class="pills" id="fAction"></div>
+        <div class="field"><label for="fDecision">نص القرار</label><textarea id="fDecision" rows="3" placeholder="مثال: تم الاتفاق على تسليم الرسومات يوم الخميس، وإرسال عرض السعر بعد المراجعة"></textarea></div>
+        <div class="row2">
+          <div class="field"><label for="fFollow">موعد المتابعة</label><input id="fFollow" type="date"></div>
+          <label class="check" style="align-self:end;padding-bottom:8px"><input type="checkbox" id="fAutoFollow"> أنشئ مهمة متابعة في هذا الموعد</label>
+        </div>
+      </div>
+      <div class="confirm" id="delConfirm" hidden>
+        <span>حذف هذه المهمة نهائياً؟ لا يمكن التراجع.</span>
+        <button type="button" class="btn sm danger" id="delYes">نعم، احذف</button>
+        <button type="button" class="btn sm" id="delNo">إلغاء</button>
+      </div>
+    </form>
+    <footer>
+      <button class="btn primary" type="submit" form="taskForm" id="saveBtn">حفظ المهمة</button>
+      <button class="btn" type="button" id="cancelBtn">إلغاء</button>
+      <span style="flex:1"></span>
+      <button class="btn danger" type="button" id="delBtn" hidden>حذف</button>
+    </footer>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+<div class="reminders" id="reminders" dir="rtl" lang="ar" aria-live="assertive"></div>
+
+<script>
+(function(){
+"use strict";
+const $=s=>document.querySelector(s);
+const ICON={
+  call:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.9v3a2 2 0 01-2.2 2 19.8 19.8 0 01-8.6-3.1 19.5 19.5 0 01-6-6A19.8 19.8 0 012.1 4.2 2 2 0 014.1 2h3a2 2 0 012 1.7c.1.9.4 1.8.7 2.7a2 2 0 01-.5 2.1L8 9.8a16 16 0 006 6l1.3-1.3a2 2 0 012.1-.4c.9.3 1.8.6 2.7.7a2 2 0 011.7 2z"/></svg>',
+  meeting:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0113 0"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.2a5 5 0 016 4.8"/></svg>',
+  project:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M5 21V8l7-5 7 5v13"/><path d="M9 21v-6h6v6"/><path d="M9 10h6"/></svg>'
+};
+const TYPES={
+  call:{label:"اتصال",c:"var(--call)",cs:"var(--call-soft)"},
+  meeting:{label:"مقابلة",c:"var(--meet)",cs:"var(--meet-soft)"},
+  project:{label:"إعداد لمشروع",c:"var(--proj)",cs:"var(--proj-soft)"}
+};
+const RESULTS={
+  answered:{label:"تم الاتصال",c:"var(--ok)",cs:"var(--ok-soft)"},
+  no_answer:{label:"لم يرد",c:"var(--warn)",cs:"var(--warn-soft)"},
+  failed:{label:"فشل الاتصال",c:"var(--bad)",cs:"var(--bad-soft)"},
+  none:{label:"لم يتم بعد",c:"var(--idle)",cs:"var(--idle-soft)"}
+};
+const ACTIONS={
+  follow:{label:"متابعة",c:"var(--call)",cs:"var(--call-soft)"},
+  postpone:{label:"تأجيل",c:"var(--warn)",cs:"var(--warn-soft)"},
+  approve:{label:"موافقة / تنفيذ",c:"var(--ok)",cs:"var(--ok-soft)"},
+  close:{label:"إغلاق الموضوع",c:"var(--idle)",cs:"var(--idle-soft)"},
+  reject:{label:"رفض / إلغاء",c:"var(--bad)",cs:"var(--bad-soft)"},
+  escalate:{label:"رفع للإدارة",c:"var(--meet)",cs:"var(--meet-soft)"}
+};
+const WORK={drawings:"رسومات",study:"إعداد دراسة",quote:"عرض سعر / مقايسة",report:"تقرير",other:"أخرى"};
+const PRI={normal:null,high:{label:"مهمة",c:"var(--warn)",cs:"var(--warn-soft)"},urgent:{label:"عاجلة",c:"var(--bad)",cs:"var(--bad-soft)"}};
+const DAYS=["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
+const SHORT=["أحد","اثنين","ثلاثاء","أربعاء","خميس","جمعة","سبت"];
+const TYPE_PLURAL={call:"اتصالات",meeting:"مقابلات",project:"مشروعات"};
+
+const pad=n=>String(n).padStart(2,"0");
+const ymd=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const parse=s=>{const [y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d)};
+const addDays=(s,n)=>{const d=parse(s);d.setDate(d.getDate()+n);return ymd(d)};
+const today=()=>ymd(new Date());
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmtTime=t=>{if(!t)return"";let [h,m]=t.split(":").map(Number);const ap=h<12?"ص":"م";h=h%12||12;return h+":"+pad(m)+" "+ap};
+const fmtDate=s=>{const d=parse(s);return DAYS[d.getDay()]+" "+d.getDate()+"/"+(d.getMonth()+1)};
+
+/* ---------- state ---------- */
+const state={date:today(),type:"all",status:"all",q:"",carryMode:false,tasks:[]};
+let readOnly=false;
+
+/* ---------- store: shared db when available, browser storage otherwise ---------- */
+const LS="agenda.tasks.v1";
+const store={
+  mode:"loading", col:null,
+  async init(){
+    let db=null;
+    try{db=window.claude&&window.claude.use?await window.claude.use("db"):null}catch(e){db=null}
+    if(db){
+      this.mode="db"; this.col=db.collection("tasks");
+      try{const u=await window.claude.use("user"); if(u&&u.can){const c=await u.can("data.write"); if(c===false)readOnly=true}}catch(e){}
+      const timer=setTimeout(()=>{if(!loaded)setNote("تعذّر الوصول إلى البيانات حالياً، ستظهر المهام فور الاتصال.")},10000);
+      let loaded=false;
+      this.col.onSnapshot(snap=>{
+        if(!snap.metadata.fromCache){loaded=true;clearTimeout(timer)}
+        state.tasks=snap.docs.map(d=>Object.assign({id:d.id},d.data()));
+        setNote(readOnly?"عرض فقط: لا تملك صلاحية تعديل هذه الأجندة.":"");
+        render();
+      },err=>{clearTimeout(timer);setNote("انقطع الاتصال بالبيانات. أعد فتح الصفحة لاحقاً.")});
+    }else{
+      this.mode="local";
+      try{state.tasks=JSON.parse(localStorage.getItem(LS)||"[]")}catch(e){state.tasks=[]}
+      setNote("يعمل بدون إنترنت · المهام محفوظة على ذاكرة هذا الجهاز. احفظ نسخة احتياطية من حين لآخر.");
+      render();
+    }
+  },
+  saveLocal(){try{localStorage.setItem(LS,JSON.stringify(state.tasks))}catch(e){}},
+  async add(data){
+    data.createdAt=new Date().toISOString(); data.updatedAt=data.createdAt;
+    if(this.mode==="db"){await this.col.add(data);return}
+    state.tasks.push(Object.assign({id:"t"+Date.now()+Math.random().toString(36).slice(2,6)},data)); this.saveLocal(); render();
+  },
+  async update(id,patch){
+    patch.updatedAt=new Date().toISOString();
+    if(this.mode==="db"){await this.col.doc(id).update(patch);return}
+    const t=state.tasks.find(x=>x.id===id); if(t)Object.assign(t,patch); this.saveLocal(); render();
+  },
+  async remove(id){
+    if(this.mode==="db"){await this.col.doc(id).delete();return}
+    state.tasks=state.tasks.filter(x=>x.id!==id); this.saveLocal(); render();
+  }
+};
+function setNote(t){const n=$("#storeNote");n.textContent=t;n.hidden=!t}
+async function safe(fn,okMsg){
+  if(readOnly){toast("لا تملك صلاحية التعديل");return false}
+  try{await fn(); if(okMsg)toast(okMsg); return true}
+  catch(e){
+    if(e&&e.code==="invalid_argument"&&store.mode==="db"){readOnly=true;toast("لا تملك صلاحية التعديل على هذه الأجندة")}
+    else if(e&&e.code==="quota_exceeded")toast("امتلأت مساحة التخزين، احذف مهام قديمة ثم أعد المحاولة");
+    else toast("تعذّر الحفظ، حاول مرة أخرى");
+    return false;
+  }
+}
+let toastT;
+function toast(m){const t=$("#toast");t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2400)}
+
+/* ---------- render ---------- */
+function dayTasks(d){return state.tasks.filter(t=>t.date===d)}
+function carryTasks(){const td=today();return state.tasks.filter(t=>t.status!=="done"&&t.date<td)}
+
+function render(){
+  $("#dateInput").value=state.date;
+  const d=parse(state.date);
+  $("#dayName").textContent=state.date===today()?"اليوم · "+DAYS[d.getDay()]:DAYS[d.getDay()];
+  const tasks=dayTasks(state.date);
+  const done=tasks.filter(t=>t.status==="done").length;
+  const total=tasks.length, pend=total-done, rate=total?Math.round(done/total*100):0;
+  $("#kTotal").textContent=total; $("#kDone").textContent=done; $("#kPending").textContent=pend; $("#kRate").textContent=rate+"%";
+  const C=2*Math.PI*22; $("#ringArc").setAttribute("stroke-dasharray",(C*rate/100)+" "+C);
+
+  // calls
+  const calls=tasks.filter(t=>t.type==="call");
+  $("#callsCount").textContent=calls.length+" اتصال";
+  const rc={answered:0,no_answer:0,failed:0,none:0};
+  calls.forEach(t=>rc[t.callResult&&rc[t.callResult]!=null?t.callResult:"none"]++);
+  $("#callStack").innerHTML=calls.length?Object.keys(rc).filter(k=>rc[k]).map(k=>`<span style="width:${rc[k]/calls.length*100}%;background:${RESULTS[k].c}" title="${RESULTS[k].label}"></span>`).join(""):"";
+  $("#callLegend").innerHTML=Object.keys(rc).map(k=>`<div><span class="dot" style="background:${RESULTS[k].c}"></span>${RESULTS[k].label}<b>${rc[k]}</b></div>`).join("");
+
+  // types
+  $("#typeTiles").innerHTML=Object.keys(TYPES).map(k=>{
+    const a=tasks.filter(t=>t.type===k), dn=a.filter(t=>t.status==="done").length;
+    return `<div class="type-tile" style="background:${TYPES[k].cs};color:${TYPES[k].c}"><div class="v num">${dn}/${a.length}</div><div class="l">${TYPE_PLURAL[k]}</div></div>`;
+  }).join("");
+
+  renderWeek();
+
+  // carry over
+  const carry=carryTasks();
+  $("#carry").hidden=!carry.length||state.carryMode;
+  $("#carryCount").textContent=carry.length;
+
+  // projects datalist
+  const projs=[...new Set(state.tasks.map(t=>t.project).filter(Boolean))];
+  $("#projectList").innerHTML=projs.map(p=>`<option value="${esc(p)}">`).join("");
+
+  renderList();
+}
+
+function renderWeek(){
+  const days=[];for(let i=6;i>=0;i--)days.push(addDays(state.date,-i));
+  const data=days.map(d=>{const a=dayTasks(d);return{d,total:a.length,done:a.filter(t=>t.status==="done").length}});
+  const max=Math.max(4,...data.map(x=>x.total));
+  const W=320,H=130,top=14,bottom=26,ch=H-top-bottom,bw=26,gap=(W-bw*7)/7;
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="المهام المنتهية خلال آخر سبعة أيام">`;
+  [0,.5,1].forEach(f=>{const y=top+ch*(1-f);s+=`<line x1="0" x2="${W}" y1="${y}" y2="${y}" stroke="var(--line)" stroke-width="1"/>`});
+  // RTL: newest day on the left end visually? Keep chronological right-to-left for Arabic reading.
+  data.forEach((x,i)=>{
+    const xi=W-(gap/2+bw)-(i*(bw+gap));
+    const ht=x.total/max*ch, hd=x.done/max*ch, sel=x.d===state.date;
+    s+=`<rect x="${xi}" y="${top+ch-ht}" width="${bw}" height="${Math.max(ht,0)}" rx="4" fill="var(--idle-soft)"/>`;
+    s+=`<rect x="${xi}" y="${top+ch-hd}" width="${bw}" height="${Math.max(hd,0)}" rx="4" fill="${sel?"var(--accent)":"color-mix(in srgb, var(--accent) 55%, transparent)"}"/>`;
+    if(x.total)s+=`<text x="${xi+bw/2}" y="${top+ch-ht-3}" text-anchor="middle" font-size="10" fill="var(--muted)" font-family="IBM Plex Sans Arabic,sans-serif">${x.done}/${x.total}</text>`;
+    const dd=parse(x.d);
+    s+=`<text x="${xi+bw/2}" y="${H-8}" text-anchor="middle" font-size="10.5" fill="${sel?"var(--accent)":"var(--muted)"}" font-weight="${sel?700:400}" font-family="IBM Plex Sans Arabic,sans-serif">${SHORT[dd.getDay()]}</text>`;
+  });
+  $("#weekChart").innerHTML=s+"</svg>";
+}
+
+function renderList(){
+  let tasks=state.carryMode?carryTasks():dayTasks(state.date);
+  const lt=$("#listTitle");
+  if(state.carryMode){lt.hidden=false;lt.innerHTML=`تعرض الآن المهام المعلقة من أيام سابقة · <button class="copy" id="exitCarry">العودة إلى يوم ${esc(fmtDate(state.date))}</button>`;$("#exitCarry").onclick=()=>{state.carryMode=false;render()}}
+  else lt.hidden=true;
+  if(state.type!=="all")tasks=tasks.filter(t=>t.type===state.type);
+  if(state.status!=="all")tasks=tasks.filter(t=>(t.status||"pending")===state.status);
+  const q=state.q.trim().toLowerCase();
+  if(q)tasks=tasks.filter(t=>[t.title,t.contact,t.project,t.decision,t.notes,t.phone,t.place].join(" ").toLowerCase().includes(q));
+  const pr={urgent:0,high:1,normal:2};
+  tasks.sort((a,b)=>((a.status==="done")-(b.status==="done"))||(a.date||"").localeCompare(b.date||"")||(pr[a.priority||"normal"]-pr[b.priority||"normal"])||(a.time||"99").localeCompare(b.time||"99"));
+  const list=$("#list");
+  if(!tasks.length){
+    const any=(state.carryMode?carryTasks():dayTasks(state.date)).length;
+    list.innerHTML=store.mode==="loading"?"":any?`<div class="empty-state"><h3>لا توجد نتائج</h3>غيّر عوامل التصفية أو كلمة البحث.</div>`:
+      `<div class="empty-state"><h3>لا توجد مهام في ${esc(fmtDate(state.date))}</h3>ابدأ صباحك بتسجيل الاتصالات والمقابلات وأعمال المشروعات المطلوبة اليوم.<div style="margin-top:14px"><button class="btn primary" data-act="add">أضف أول مهمة</button></div></div>`;
+    return;
+  }
+  list.innerHTML=tasks.map(cardHTML).join("");
+}
+
+/* phone links: tel: opens the phone dialer, wa.me opens WhatsApp. Local Egyptian numbers (01…) get the 20 country code for WhatsApp. */
+function telNum(p){const s=String(p||"").trim();return (s.startsWith("+")?"+":"")+s.replace(/[^\d]/g,"")}
+function waNum(p){let s=String(p||"").trim().replace(/[^\d+]/g,"");if(s.startsWith("+"))s=s.slice(1);else if(s.startsWith("00"))s=s.slice(2);else if(s.startsWith("0"))s="20"+s.slice(1);return s.replace(/\D/g,"")}
+function dialHTML(phone,attr){
+  if(!phone||telNum(phone).replace("+","").length<5)return"";
+  const PH='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M22 16.9v3a2 2 0 01-2.2 2 19.8 19.8 0 01-8.6-3.1 19.5 19.5 0 01-6-6A19.8 19.8 0 012.1 4.2 2 2 0 014.1 2h3a2 2 0 012 1.7c.1.9.4 1.8.7 2.7a2 2 0 01-.5 2.1L8 9.8a16 16 0 006 6l1.3-1.3a2 2 0 012.1-.4c.9.3 1.8.6 2.7.7a2 2 0 011.7 2z"/></svg>';
+  const WA='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21l1.7-5A8.5 8.5 0 1112 20.5a8.4 8.4 0 01-4-1z"/><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5l1-1.5-2-1-1 .8a4 4 0 01-1.8-1.8l.8-1-1-2z"/></svg>';
+  return `<div class="dial"><a class="callbtn tel" href="tel:${esc(telNum(phone))}" data-dial="1">${PH}اتصال</a><a class="callbtn wa" href="https://wa.me/${esc(waNum(phone))}" target="_blank" rel="noopener">${WA}واتساب</a><span class="no" dir="ltr">${esc(phone)}</span><button type="button" class="copy" data-${attr}="copy" data-v="${esc(phone)}">نسخ الرقم</button></div>`;
+}
+document.addEventListener("click",e=>{const a=e.target.closest("a[data-dial]");if(a)toast("جارٍ فتح الاتصال… إن لم يفتح، انسخ الرقم واتصل يدوياً، ثم سجّل نتيجة الاتصال")});
+
+function cardHTML(t){
+  const ty=TYPES[t.type]||TYPES.call, done=t.status==="done";
+  const pri=PRI[t.priority];
+  const meta=[];
+  if(state.carryMode||t.date!==state.date)meta.push(`<span>📅 ${esc(fmtDate(t.date))}</span>`);
+  if(t.time)meta.push(`<span class="num">🕘 ${esc(fmtTime(t.time))}</span>`);
+  if(!done&&remindOn(t)){
+    const sz=t.snoozeUntil&&new Date(t.snoozeUntil)>new Date();
+    meta.push(`<span class="num" style="color:var(--warn)">🔔 ${sz?"غفوة حتى "+esc(clock(new Date(t.snoozeUntil))):"تذكير "+esc(clock(remindAt(t)))}</span>`);
+  }
+  if(t.contact)meta.push(`<span>👤 ${esc(t.contact)}</span>`);
+  if(t.type==="meeting"&&t.place)meta.push(`<span>📍 ${esc(t.place)}</span>`);
+  if(t.project)meta.push(`<span>🏗 ${esc(t.project)}</span>`);
+  if(t.type==="project"&&t.work&&WORK[t.work])meta.push(`<span>✎ ${WORK[t.work]}</span>`);
+  let quick="";
+  if(t.type==="call"){
+    quick=`<div class="quick"><span class="ql">نتيجة الاتصال:</span>${["answered","no_answer","failed"].map(k=>`<button class="qb" data-act="result" data-v="${k}" aria-pressed="${t.callResult===k}" style="--c:${RESULTS[k].c};--cs:${RESULTS[k].cs}">${RESULTS[k].label}</button>`).join("")}</div>`;
+  }
+  const act=t.action&&ACTIONS[t.action];
+  const decision=(t.decision||act)?
+    `<div class="decision"><span class="dl">القرار:</span>${act?`<span class="chip" style="background:${act.cs};color:${act.c};margin-inline-end:6px">${act.label}</span>`:""}${esc(t.decision||"")}${t.followUp?` <span class="chip" style="background:var(--surface);color:var(--muted)">متابعة ${esc(fmtDate(t.followUp))}</span>`:""}</div>`:
+    `<div class="decision empty">لم يُسجَّل قرار بعد · <button data-act="edit">اكتب القرار</button></div>`;
+  return `<article class="task ${done?"done":""}" data-id="${esc(t.id)}" style="--tc:${ty.c};--tcs:${ty.cs}">
+    <div class="t-ico" aria-hidden="true">${ICON[t.type]||ICON.call}</div>
+    <div class="t-body">
+      <div class="t-head"><span class="chip" style="background:${ty.cs};color:${ty.c}">${ty.label}</span>${pri?`<span class="chip" style="background:${pri.cs};color:${pri.c}">${pri.label}</span>`:""}<span class="t-title">${esc(t.title)}</span></div>
+      ${meta.length?`<div class="meta">${meta.join("")}</div>`:""}
+      ${dialHTML(t.phone,"act")}
+      ${quick}
+      ${t.notes?`<div class="meta">${esc(t.notes)}</div>`:""}
+      ${decision}
+    </div>
+    <div class="t-side">
+      <button class="status ${done?"done":"pending"}" data-act="toggle" title="تغيير الحالة">${done?"✓ انتهت":"● معلقة"}</button>
+      <div class="icon-btns">
+        <button data-act="edit" aria-label="تعديل"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg></button>
+        <button data-act="dup" aria-label="نسخ إلى الغد"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg></button>
+      </div>
+    </div>
+  </article>`;
+}
+
+async function copyNum(b){const v=b.dataset.v;try{await navigator.clipboard.writeText(v);toast("تم نسخ الرقم")}catch(_){const n=b.parentNode.querySelector(".no")||b.parentNode;const r=document.createRange();r.selectNodeContents(n);const s=getSelection();s.removeAllRanges();s.addRange(r);toast("الرقم محدد، انسخه")}}
+/* ---------- list interactions ---------- */
+$("#list").addEventListener("click",async e=>{
+  const b=e.target.closest("[data-act]"); if(!b)return;
+  const act=b.dataset.act;
+  if(act==="add"){openForm();return}
+  const card=b.closest(".task"); const t=card&&state.tasks.find(x=>x.id===card.dataset.id);
+  if(act==="copy"){copyNum(b);return}
+  if(!t)return;
+  if(act==="edit")openForm(t);
+  if(act==="toggle")safe(()=>store.update(t.id,{status:t.status==="done"?"pending":"done"}),t.status==="done"?"أُعيدت إلى معلقة":"تم إنهاء المهمة");
+  if(act==="result"){const v=t.callResult===b.dataset.v?null:b.dataset.v;const patch={callResult:v};if(v==="answered"&&t.status!=="done")patch.status="done";safe(()=>store.update(t.id,patch),v?RESULTS[v].label:"")}
+  if(act==="dup"){const c=Object.assign({},t);delete c.id;c.date=addDays(today(),1);c.status="pending";c.callResult=null;c.decision="";c.action=null;c.followUp=null;c.snoozeUntil=null;c.reminderOff=false;safe(()=>store.add(c),"نُسخت إلى الغد")}
+});
+
+/* ---------- toolbar ---------- */
+function segBind(id,key){$(id).addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;state[key]=b.dataset.v;$(id).querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b));renderList()})}
+segBind("#typeFilter","type");segBind("#statusFilter","status");
+$("#search").addEventListener("input",e=>{state.q=e.target.value;renderList()});
+$("#addBtn").onclick=()=>openForm();
+$("#prevDay").onclick=()=>{state.date=addDays(state.date,-1);state.carryMode=false;render()};
+$("#nextDay").onclick=()=>{state.date=addDays(state.date,1);state.carryMode=false;render()};
+$("#todayBtn").onclick=()=>{state.date=today();state.carryMode=false;render()};
+$("#dateInput").onchange=e=>{if(e.target.value){state.date=e.target.value;state.carryMode=false;render()}};
+$("#showCarry").onclick=()=>{state.carryMode=true;render()};
+$("#moveCarry").onclick=async()=>{
+  if(readOnly){toast("لا تملك صلاحية التعديل");return}
+  const items=carryTasks(), td=today(); let n=0;
+  for(const t of items){if(await safe(()=>store.update(t.id,{date:td,carriedFrom:t.carriedFrom||t.date,snoozeUntil:null,reminderOff:false})))n++}
+  state.date=td; state.carryMode=false; render(); toast("نُقلت "+n+" مهمة إلى اليوم");
+};
+
+/* ---------- form ---------- */
+let editing=null, f={type:"call",status:"pending",result:"none",action:null,work:null};
+Object.keys(TYPES).forEach(k=>{$(`#fType [data-v="${k}"]`).innerHTML=ICON[k]+TYPES[k].label});
+$("#fResult").innerHTML=Object.keys(RESULTS).map(k=>`<button type="button" data-v="${k}" style="--c:${RESULTS[k].c};--cs:${RESULTS[k].cs}">${RESULTS[k].label}</button>`).join("");
+$("#fAction").innerHTML=Object.keys(ACTIONS).map(k=>`<button type="button" data-v="${k}" style="--c:${ACTIONS[k].c};--cs:${ACTIONS[k].cs}">${ACTIONS[k].label}</button>`).join("");
+
+function pills(id,key,toggleable){$(id).addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;f[key]=(toggleable&&f[key]===b.dataset.v)?null:b.dataset.v;syncForm()})}
+pills("#fType","type");pills("#fStatus","status");pills("#fResult","result");pills("#fAction","action",true);pills("#fWork","work",true);
+function press(id,v){$(id).querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.v===v))}
+function syncForm(){
+  press("#fType",f.type);press("#fStatus",f.status);press("#fResult",f.result);press("#fAction",f.action);press("#fWork",f.work);
+  $("#wrapResult").hidden=f.type!=="call";
+  $("#fPhoneLbl").textContent=f.type==="call"?"رقم الهاتف للاتصال":"رقم الهاتف (اختياري)";
+  $("#wrapPlace").hidden=f.type!=="meeting"; $("#wrapWork").hidden=f.type!=="project";
+  $("#fContactLbl").textContent=f.type==="project"?"العميل / الجهة":f.type==="meeting"?"مع من؟":"الشخص / الجهة";
+  $("#fTitle").placeholder=f.type==="call"?"مثال: الاتصال بالمهندس أحمد بخصوص الرسومات التنفيذية":f.type==="meeting"?"مثال: مقابلة مع العميل لمناقشة التصميم المبدئي":"مثال: إعداد دراسة جدوى مبدئية للمشروع";
+}
+function openForm(t){
+  editing=t||null;
+  $("#mTitle").textContent=t?"تعديل المهمة":"مهمة جديدة";
+  f={type:t?t.type:"call",status:t?t.status||"pending":"pending",result:t&&t.callResult?t.callResult:"none",action:t?t.action||null:null,work:t?t.work||null:null};
+  $("#fTitle").value=t?t.title||"":""; $("#fContact").value=t?t.contact||"":""; $("#fPhone").value=t?t.phone||"":"";
+  $("#fPlace").value=t?t.place||"":""; $("#fProject").value=t?t.project||"":"";
+  $("#fDate").value=t?t.date:state.date; $("#fTime").value=t?t.time||"":""; $("#fPriority").value=t?t.priority||"normal":"normal";
+  $("#fRemind").value=t?(t.remind||"at"):"at";
+  $("#fNotes").value=t?t.notes||"":""; $("#fDecision").value=t?t.decision||"":""; $("#fFollow").value=t?t.followUp||"":""; $("#fAutoFollow").checked=false;
+  $("#delBtn").hidden=!t; $("#delConfirm").hidden=true;
+  syncForm(); $("#overlay").hidden=false; setTimeout(()=>$("#fTitle").focus(),30);
+}
+function closeForm(){$("#overlay").hidden=true;editing=null}
+$("#mClose").onclick=closeForm;$("#cancelBtn").onclick=closeForm;
+$("#overlay").addEventListener("click",e=>{if(e.target.id==="overlay")closeForm()});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#overlay").hidden)closeForm()});
+$("#fFollow").addEventListener("change",e=>{if(e.target.value&&!f.action){f.action="follow";syncForm()}});
+$("#delBtn").onclick=()=>{$("#delConfirm").hidden=false;$("#delConfirm").scrollIntoView({block:"nearest"})};
+$("#delNo").onclick=()=>{$("#delConfirm").hidden=true};
+$("#delYes").onclick=async()=>{if(editing&&await safe(()=>store.remove(editing.id),"حُذفت المهمة"))closeForm()};
+
+$("#taskForm").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const title=$("#fTitle").value.trim(); if(!title){$("#fTitle").focus();return}
+  const data={
+    type:f.type,title,contact:$("#fContact").value.trim(),date:$("#fDate").value||state.date,time:$("#fTime").value,
+    priority:$("#fPriority").value,status:f.status,notes:$("#fNotes").value.trim(),
+    project:$("#fProject").value.trim(),
+    phone:$("#fPhone").value.trim(),
+    callResult:f.type==="call"&&f.result!=="none"?f.result:null,
+    place:f.type==="meeting"?$("#fPlace").value.trim():"",
+    work:f.type==="project"?f.work:null,
+    action:f.action,decision:$("#fDecision").value.trim(),followUp:$("#fFollow").value||null,
+    remind:$("#fRemind").value,snoozeUntil:null,reminderOff:false
+  };
+  const btn=$("#saveBtn"); btn.disabled=true;
+  const ok=await safe(()=>editing?store.update(editing.id,data):store.add(data),editing?"تم حفظ التعديلات":"أُضيفت المهمة");
+  if(ok&&$("#fAutoFollow").checked&&data.followUp){
+    await safe(()=>store.add({type:data.type,title:"متابعة: "+title,contact:data.contact,phone:data.phone,place:data.place,project:data.project,work:data.work,date:data.followUp,time:"",priority:data.priority,status:"pending",notes:data.decision?"القرار السابق: "+data.decision:"",callResult:null,action:null,decision:"",followUp:null,remind:"at",snoozeUntil:null,reminderOff:false}),"أُنشئت مهمة متابعة");
+  }
+  btn.disabled=false;
+  if(ok){if(!editing&&data.date!==state.date){state.date=data.date;}closeForm();render()}
+});
+
+/* ---------- reminders ---------- */
+const SNOOZE=[5,10,15,30];
+const OFFSET={at:0,b10:10,b30:30};
+function remindOn(t){return t.status!=="done"&&(t.remind||"at")!=="none"&&!t.reminderOff&&!!t.date}
+function remindAt(t){
+  const d=parse(t.date);
+  if(t.time){const [h,m]=t.time.split(":").map(Number);d.setHours(h,m,0,0);d.setMinutes(d.getMinutes()-(OFFSET[t.remind||"at"]||0))}
+  else d.setHours(12,0,0,0);
+  return d;
+}
+function clock(d){return fmtTime(pad(d.getHours())+":"+pad(d.getMinutes()))+(ymd(d)!==today()?" "+fmtDate(ymd(d)):"")}
+function dueTasks(){
+  const now=new Date();
+  return state.tasks.filter(t=>remindOn(t)&&remindAt(t)<=now&&!(t.snoozeUntil&&new Date(t.snoozeUntil)>now))
+    .sort((a,b)=>remindAt(a)-remindAt(b));
+}
+let soundOn=true; try{soundOn=localStorage.getItem("agenda.sound")!=="off"}catch(e){}
+$("#soundBtn").setAttribute("aria-pressed",soundOn);
+$("#soundBtn").onclick=()=>{soundOn=!soundOn;$("#soundBtn").setAttribute("aria-pressed",soundOn);try{localStorage.setItem("agenda.sound",soundOn?"on":"off")}catch(e){};toast(soundOn?"صوت التذكير مفعّل":"صوت التذكير متوقف");if(soundOn)beep()};
+let actx=null;
+function beep(){
+  if(!soundOn)return;
+  try{
+    actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+    if(actx.state==="suspended")actx.resume();
+    [0,0.22].forEach((delay,i)=>{const o=actx.createOscillator(),g=actx.createGain();o.type="sine";o.frequency.value=i?1046:784;
+      const t0=actx.currentTime+delay;g.gain.setValueAtTime(0.0001,t0);g.gain.exponentialRampToValueAtTime(0.18,t0+0.02);g.gain.exponentialRampToValueAtTime(0.0001,t0+0.35);
+      o.connect(g).connect(actx.destination);o.start(t0);o.stop(t0+0.4)});
+  }catch(e){}
+}
+const shown=new Set(); const baseTitle=document.title;
+function renderReminders(){
+  const due=dueTasks(); const box=$("#reminders"); const now=new Date();
+  let fresh=false; const ids=new Set(due.map(t=>t.id+"|"+(t.snoozeUntil||"")));
+  ids.forEach(k=>{if(!shown.has(k)){fresh=true;shown.add(k)}});
+  [...shown].forEach(k=>{if(!ids.has(k))shown.delete(k)});
+  if(fresh)beep();
+  document.title=due.length?"("+due.length+") "+baseTitle:baseTitle;
+  box.innerHTML=due.slice(0,4).map(t=>{
+    const ty=TYPES[t.type]||TYPES.call; const lateMin=Math.floor((now-remindAt(t))/60000); const late=lateMin>=15;
+    return `<div class="rem ${late?"late":""}" data-id="${esc(t.id)}" role="alert">
+      <div class="rem-h"><svg class="bell" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
+        <span>تذكير · ${ty.label}${t.time?" · "+esc(fmtTime(t.time)):""}</span><span style="margin-inline-start:auto" class="num">${lateMin<1?"الآن":lateMin<60?"منذ "+lateMin+" د":lateMin<1440?"منذ "+Math.floor(lateMin/60)+" س":"منذ "+Math.floor(lateMin/1440)+" يوم"}</span></div>
+      <div class="rem-t">${esc(t.title)}</div>
+      ${t.contact?`<div class="hint">${esc(t.contact)}</div>`:""}
+      ${dialHTML(t.phone,"r")}
+      <div class="rem-row"><span class="lbl">غفوة:</span>${SNOOZE.map(m=>`<button class="snz num" data-r="snooze" data-m="${m}">${m} د</button>`).join("")}</div>
+      <div class="rem-row">
+        <button class="btn sm primary" data-r="done">✓ تمت المهمة</button>
+        <button class="btn sm" data-r="open">فتح</button>
+        <button class="btn sm" data-r="off" title="إيقاف التذكير لهذه المهمة">إيقاف التذكير</button>
+      </div></div>`;
+  }).join("")+(due.length>4?`<div class="rem" style="border-inline-start-color:var(--line)"><span class="hint">و${due.length-4} تذكيرات أخرى بانتظارك</span></div>`:"");
+}
+$("#reminders").addEventListener("click",e=>{
+  const b=e.target.closest("[data-r]"); if(!b)return;
+  const card=b.closest(".rem"); const t=card&&state.tasks.find(x=>x.id===card.dataset.id); if(!t)return;
+  const r=b.dataset.r;
+  if(r==="copy"){copyNum(b);return}
+  if(r==="snooze"){const m=Math.min(30,Number(b.dataset.m)||5);safe(()=>store.update(t.id,{snoozeUntil:new Date(Date.now()+m*60000).toISOString()}),"سيتم تذكيرك بعد "+m+" دقيقة").then(renderReminders)}
+  if(r==="done")safe(()=>store.update(t.id,{status:"done",snoozeUntil:null}),"تم إنهاء المهمة").then(renderReminders);
+  if(r==="off")safe(()=>store.update(t.id,{reminderOff:true}),"أُوقف التذكير لهذه المهمة").then(renderReminders);
+  if(r==="open"){state.date=t.date;state.carryMode=false;render();openForm(t)}
+});
+setInterval(renderReminders,20000);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)renderReminders()});
+const _render=render; render=function(){_render();renderReminders()};
+
+/* ---------- offline: keep storage, backup / restore ---------- */
+try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
+$("#exportBtn").onclick=()=>{
+  try{
+    const blob=new Blob([JSON.stringify({app:"agenda",version:1,exportedAt:new Date().toISOString(),tasks:state.tasks},null,1)],{type:"application/json"});
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="agenda-backup-"+today()+".json";
+    document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);
+    toast("تم حفظ النسخة الاحتياطية في التنزيلات");
+  }catch(e){toast("تعذّر حفظ النسخة الاحتياطية")}
+};
+$("#importBtn").onclick=()=>$("#importFile").click();
+$("#importFile").onchange=e=>{
+  const file=e.target.files&&e.target.files[0]; if(!file)return;
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const j=JSON.parse(r.result); const list=Array.isArray(j)?j:j.tasks;
+      if(!Array.isArray(list))throw 0;
+      const byId=new Map(state.tasks.map(t=>[t.id,t]));
+      let n=0; list.forEach(t=>{if(t&&t.id&&t.title){byId.set(t.id,t);n++}});
+      state.tasks=[...byId.values()]; store.saveLocal(); render();
+      toast("تم استرجاع "+n+" مهمة");
+    }catch(err){toast("الملف غير صالح، اختر ملف نسخة احتياطية من هذا التطبيق")}
+    e.target.value="";
+  };
+  r.readAsText(file);
+};
+
+render();
+store.init();
+})();
+</script>
+
+<script>
+if("serviceWorker" in navigator){window.addEventListener("load",()=>{navigator.serviceWorker.register("sw.js").catch(()=>{})})}
+</script>
+</body>
+</html>
