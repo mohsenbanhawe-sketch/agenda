@@ -235,6 +235,8 @@ button{cursor:pointer}
   .toolbar .seg button{white-space:nowrap;padding:6px 10px}
   .search{min-width:0;flex:1 1 100%}
 }
+.autocarry{display:flex;align-items:center;gap:8px;flex-basis:100%;justify-content:center;font-size:.88rem;color:var(--muted);cursor:pointer}
+.autocarry input{width:18px;height:18px;accent-color:var(--accent)}
 </style>
 </head>
 <body>
@@ -269,7 +271,7 @@ button{cursor:pointer}
 
   <div class="carry" id="carry" hidden>
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--warn)"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L2 18a2 2 0 001.7 3h16.6a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg>
-    <span>لديك <strong class="num" id="carryCount">0</strong> مهام معلقة من أيام سابقة.</span>
+    <span>لديك <strong class="num" id="carryCount">0</strong> مهام معلقة أو بلا قرار من أيام سابقة.</span>
     <span class="sp"></span>
     <button class="btn sm" id="showCarry">عرضها</button>
     <button class="btn sm primary" id="moveCarry">نقلها إلى اليوم</button>
@@ -313,6 +315,7 @@ button{cursor:pointer}
   </details>
   <p class="notice" id="storeNote">جارٍ تحميل مهامك…</p>
   <div class="backup">
+    <label class="autocarry"><input type="checkbox" id="autoCarry"> ترحيل المهام المعلقة أو بلا قرار تلقائياً إلى اليوم التالي</label>
     <button class="btn sm" id="exportBtn">حفظ نسخة احتياطية</button>
     <button class="btn sm" id="importBtn">استرجاع نسخة احتياطية</button>
     <input type="file" id="importFile" accept=".json,application/json" hidden>
@@ -535,7 +538,9 @@ function toast(m){const t=$("#toast");t.textContent=m;t.hidden=false;clearTimeou
 
 /* ---------- render ---------- */
 function dayTasks(d){return state.tasks.filter(t=>t.date===d)}
-function carryTasks(){const td=today();return state.tasks.filter(t=>t.status!=="done"&&t.date<td)}
+const noDecision=t=>!String(t.decision||"").trim();
+function needsCarry(t){return t.status!=="done"||noDecision(t)}
+function carryTasks(){const td=today();return state.tasks.filter(t=>t.date&&t.date<td&&needsCarry(t))}
 
 function render(){
   $("#dateInput").value=state.date;
@@ -598,7 +603,7 @@ function renderWeek(){
 function renderList(){
   let tasks=state.carryMode?carryTasks():dayTasks(state.date);
   const lt=$("#listTitle");
-  if(state.carryMode){lt.hidden=false;lt.innerHTML=`تعرض الآن المهام المعلقة من أيام سابقة · <button class="copy" id="exitCarry">العودة إلى يوم ${esc(fmtDate(state.date))}</button>`;$("#exitCarry").onclick=()=>{state.carryMode=false;render()}}
+  if(state.carryMode){lt.hidden=false;lt.innerHTML=`تعرض الآن المهام المعلقة أو بلا قرار من أيام سابقة · <button class="copy" id="exitCarry">العودة إلى يوم ${esc(fmtDate(state.date))}</button>`;$("#exitCarry").onclick=()=>{state.carryMode=false;render()}}
   else lt.hidden=true;
   if(state.type!=="all")tasks=tasks.filter(t=>t.type===state.type);
   if(state.status!=="all")tasks=tasks.filter(t=>(t.status||"pending")===state.status);
@@ -632,6 +637,7 @@ function cardHTML(t){
   const pri=PRI[t.priority];
   const meta=[];
   if(state.carryMode||t.date!==state.date)meta.push(`<span>📅 ${esc(fmtDate(t.date))}</span>`);
+  if(t.carriedFrom&&t.carriedFrom!==t.date)meta.push(`<span style="color:var(--warn)">↪ مُرحّلة من ${esc(fmtDate(t.carriedFrom))}${t.carryCount>1?" · "+t.carryCount+" مرات":""}${done&&noDecision(t)?" · تنتظر قرارك":""}</span>`);
   if(t.time)meta.push(`<span class="num">🕘 ${esc(fmtTime(t.time))}</span>`);
   if(!done&&remindOn(t)){
     const sz=t.snoozeUntil&&new Date(t.snoozeUntil)>new Date();
@@ -691,11 +697,17 @@ $("#nextDay").onclick=()=>{state.date=addDays(state.date,1);state.carryMode=fals
 $("#todayBtn").onclick=()=>{state.date=today();state.carryMode=false;render()};
 $("#dateInput").onchange=e=>{if(e.target.value){state.date=e.target.value;state.carryMode=false;render()}};
 $("#showCarry").onclick=()=>{state.carryMode=true;render()};
+async function moveCarried(){
+  const items=carryTasks(), td=today(); let n=0;
+  for(const t of items){
+    try{await store.update(t.id,{date:td,carriedFrom:t.carriedFrom||t.date,carryCount:(t.carryCount||0)+1,snoozeUntil:null,reminderOff:false});n++}catch(e){}
+  }
+  return n;
+}
 $("#moveCarry").onclick=async()=>{
   if(readOnly){toast("لا تملك صلاحية التعديل");return}
-  const items=carryTasks(), td=today(); let n=0;
-  for(const t of items){if(await safe(()=>store.update(t.id,{date:td,carriedFrom:t.carriedFrom||t.date,snoozeUntil:null,reminderOff:false})))n++}
-  state.date=td; state.carryMode=false; render(); toast("نُقلت "+n+" مهمة إلى اليوم");
+  const n=await moveCarried();
+  state.date=today(); state.carryMode=false; render(); toast("نُقلت "+n+" مهمة إلى اليوم");
 };
 
 /* ---------- form ---------- */
@@ -857,7 +869,28 @@ $("#reminders").addEventListener("click",e=>{
 });
 setInterval(renderReminders,20000);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)renderReminders()});
-const _render=render; render=function(){_render();renderReminders()};
+const _render=render; render=function(){_render();renderReminders();queueAutoCarry()};
+let autoCarry=true; try{autoCarry=localStorage.getItem("agenda.autoCarry")!=="off"}catch(e){}
+let carryBusy=false, carryTimer=null, lastDay=today();
+function queueAutoCarry(){
+  if(!autoCarry||carryBusy||readOnly||store.mode==="loading")return;
+  clearTimeout(carryTimer);
+  carryTimer=setTimeout(async()=>{
+    if(!carryTasks().length)return;
+    carryBusy=true;
+    const viewingToday=state.date===lastDay||state.date===today();
+    const n=await moveCarried();
+    carryBusy=false;
+    if(viewingToday&&!state.carryMode)state.date=today();
+    render();
+    if(n)toast("رُحّلت "+n+" مهمة معلقة أو بلا قرار إلى اليوم");
+  },800);
+}
+setInterval(()=>{const d=today();if(d!==lastDay){if(state.date===lastDay)state.date=d;lastDay=d;render()}},60000);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden){const d=today();if(d!==lastDay){if(state.date===lastDay)state.date=d;lastDay=d}render()}});
+$("#autoCarry").checked=autoCarry;
+$("#autoCarry").onchange=e=>{autoCarry=e.target.checked;try{localStorage.setItem("agenda.autoCarry",autoCarry?"on":"off")}catch(err){}
+  toast(autoCarry?"الترحيل التلقائي مفعّل":"الترحيل التلقائي متوقف، يمكنك النقل يدوياً من التنبيه");render()};
 
 /* ---------- offline: keep storage, backup / restore ---------- */
 try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
