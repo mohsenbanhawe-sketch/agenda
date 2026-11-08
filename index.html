@@ -42,6 +42,19 @@ html{-webkit-text-size-adjust:100%}
 :root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 body{margin:0}
 [hidden]{display:none!important}
+.syncbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px;padding:8px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font-size:13px;color:var(--muted)}
+.syncbar #syncText{flex:1;min-width:0}
+.syncbar .dot{width:9px;height:9px;border-radius:50%;background:var(--muted);flex:none}
+.syncbar .dot.ok{background:var(--ok)}.syncbar .dot.busy{background:var(--warn)}.syncbar .dot.err{background:var(--bad,#c0392b)}
+.syncbody{padding:16px 22px 22px;display:grid;gap:12px;line-height:1.8}
+.syncbody p{margin:0}
+.syncbody .code{font:600 19px/1.4 ui-monospace,Consolas,monospace;letter-spacing:1px;text-align:center;padding:12px;border:1px dashed var(--line);border-radius:10px;word-break:break-all;user-select:all}
+.syncbody .row-btns{display:flex;gap:8px;flex-wrap:wrap}
+.syncbody #syncSetup,.syncbody #syncOn{display:grid;gap:10px}
+.syncbody input{font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--fg);width:100%;box-sizing:border-box}
+.syncbody .or{text-align:center;color:var(--muted);font-size:13px}
+@media (max-width:420px){.syncbody .code{font-size:15px;letter-spacing:0}}
+.syncbody .danger-link{justify-self:start;color:var(--bad,#c0392b)}
 .backup{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center}
 body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.6}
 .wrap>*{min-width:0}
@@ -218,6 +231,10 @@ button{cursor:pointer}
       <button id="soundBtn" class="bell-toggle" aria-pressed="true" title="صوت التذكير" aria-label="صوت التذكير"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg></button>
     </div>
   </header>
+  <div class="syncbar" id="syncBar">
+    <span class="dot" id="syncDot"></span><span id="syncText">المزامنة غير مفعّلة</span>
+    <button class="btn sm" id="syncOpen" type="button">ربط الهاتف والكمبيوتر</button>
+  </div>
 
   <section class="kpis" aria-label="ملخص اليوم">
     <div class="kpi"><div class="ico" style="background:var(--accent-soft);color:var(--accent)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></div><div><div class="v num" id="kTotal">0</div><div class="l">مهام اليوم</div></div></div>
@@ -262,7 +279,7 @@ button{cursor:pointer}
       <button data-v="pending" aria-pressed="false">معلقة</button>
       <button data-v="done" aria-pressed="false">منتهية</button>
     </div>
-    <input class="search" id="search" type="search" placeholder="ابحث في المهام والأسماء والقرارات…">
+    <input class="search" id="search" type="search" placeholder="ابحث في المهام والملاحظات والقرارات…">
     <button class="btn primary" id="addBtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M12 5v14M5 12h14"/></svg>مهمة جديدة</button>
   </section>
 
@@ -289,8 +306,8 @@ button{cursor:pointer}
       </div>
       <div class="field"><label for="fTitle">المهمة</label><input id="fTitle" required placeholder="مثال: الاتصال بالمهندس أحمد بخصوص الرسومات التنفيذية"></div>
       <div class="row2">
-        <div class="field"><label for="fContact" id="fContactLbl">الشخص / الجهة</label><input id="fContact" placeholder="الاسم أو الشركة"></div>
-        <div class="field" id="wrapPhone"><label for="fPhone" id="fPhoneLbl">رقم الهاتف للاتصال</label>
+        <div class="field" hidden><label for="fContact" id="fContactLbl">الشخص / الجهة</label><input id="fContact" placeholder="الاسم أو الشركة"></div>
+        <div class="field" id="wrapPhone" hidden><label for="fPhone" id="fPhoneLbl">رقم الهاتف للاتصال</label>
           <input id="fPhone" type="tel" inputmode="tel" dir="ltr" autocomplete="tel" placeholder="01xxxxxxxxx أو ‎+9665xxxxxxxx">
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button type="button" class="btn sm" id="pickContact" style="border-color:var(--ok);color:var(--ok);background:var(--ok-soft);font-weight:600" title="اختيار رقم من جهات الاتصال"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><circle cx="12" cy="10" r="3"/><path d="M7.5 18a4.5 4.5 0 019 0"/></svg>إضافة رقم من جهات الاتصال</button>
@@ -301,7 +318,7 @@ button{cursor:pointer}
         </div>
         <div class="field" id="wrapPlace"><label for="fPlace">مكان المقابلة</label><input id="fPlace" placeholder="المكتب، الموقع، أونلاين…"></div>
       </div>
-      <div class="field" id="wrapProject"><label for="fProject">المشروع</label><input id="fProject" list="projectList" placeholder="اسم المشروع"><datalist id="projectList"></datalist></div>
+      <div class="field" id="wrapProject" hidden><label for="fProject">المشروع</label><input id="fProject" list="projectList" placeholder="اسم المشروع"><datalist id="projectList"></datalist></div>
       <div class="field" id="wrapWork"><span class="lbl">نوع العمل</span>
         <div class="pills" id="fWork">
           <button type="button" data-v="drawings">رسومات</button>
@@ -360,6 +377,32 @@ button{cursor:pointer}
   </div>
 </div>
 <div class="toast" id="toast" hidden></div>
+<div class="overlay" id="syncOverlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="syncTitle">
+    <header><h2 id="syncTitle">ربط الهاتف والكمبيوتر</h2><button class="btn sm" type="button" id="syncClose" aria-label="إغلاق">✕</button></header>
+    <div class="syncbody">
+      <div id="syncOn">
+        <p>هذا الجهاز مربوط بكود المزامنة التالي. افتح التطبيق على الجهاز الآخر واختر <b>«عندي كود»</b> ثم أدخل الكود، أو أرسل لنفسك رابط الربط وافتحه هناك.</p>
+        <div class="code" id="syncCode" dir="ltr"></div>
+        <div class="row-btns">
+          <button class="btn sm" type="button" id="syncCopyCode">نسخ الكود</button>
+          <button class="btn sm" type="button" id="syncShare">إرسال رابط الربط</button>
+          <button class="btn sm" type="button" id="syncNow">مزامنة الآن</button>
+        </div>
+        <p class="hint">احتفظ بالكود لنفسك: من يعرفه يستطيع رؤية مهامك.</p>
+        <button class="btn sm danger-link" type="button" id="syncOff">إلغاء الربط على هذا الجهاز</button>
+      </div>
+      <div id="syncSetup">
+        <p>اربط أجهزتك لتظهر نفس المهام على الهاتف والكمبيوتر، وتتحدث تلقائياً عند وجود إنترنت. بدون إنترنت يستمر التطبيق بالعمل ويُرسل التعديلات عند عودة الاتصال.</p>
+        <button class="btn primary" type="button" id="syncCreate">هذا أول جهاز: أنشئ كود مزامنة</button>
+        <div class="or">أو</div>
+        <label for="syncInput">عندي كود من الجهاز الآخر</label>
+        <input id="syncInput" dir="ltr" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX">
+        <button class="btn" type="button" id="syncJoin">ربط هذا الجهاز</button>
+      </div>
+    </div>
+  </div>
+</div>
 <div class="reminders" id="reminders" dir="rtl" lang="ar" aria-live="assertive"></div>
 
 <script>
@@ -500,7 +543,7 @@ function render(){
   $("#carryCount").textContent=carry.length;
 
   // projects datalist
-  const projs=[...new Set(state.tasks.map(t=>t.project).filter(Boolean))];
+  const projs=[];
   $("#projectList").innerHTML=projs.map(p=>`<option value="${esc(p)}">`).join("");
 
   renderList();
@@ -568,9 +611,7 @@ function cardHTML(t){
     const sz=t.snoozeUntil&&new Date(t.snoozeUntil)>new Date();
     meta.push(`<span class="num" style="color:var(--warn)">🔔 ${sz?"غفوة حتى "+esc(clock(new Date(t.snoozeUntil))):"تذكير "+esc(clock(remindAt(t)))}</span>`);
   }
-  if(t.contact)meta.push(`<span>👤 ${esc(t.contact)}</span>`);
   if(t.type==="meeting"&&t.place)meta.push(`<span>📍 ${esc(t.place)}</span>`);
-  if(t.project)meta.push(`<span>🏗 ${esc(t.project)}</span>`);
   if(t.type==="project"&&t.work&&WORK[t.work])meta.push(`<span>✎ ${WORK[t.work]}</span>`);
   let quick="";
   if(t.type==="call"){
@@ -585,7 +626,6 @@ function cardHTML(t){
     <div class="t-body">
       <div class="t-head"><span class="chip" style="background:${ty.cs};color:${ty.c}">${ty.label}</span>${pri?`<span class="chip" style="background:${pri.cs};color:${pri.c}">${pri.label}</span>`:""}<span class="t-title">${esc(t.title)}</span></div>
       ${meta.length?`<div class="meta">${meta.join("")}</div>`:""}
-      ${dialHTML(t.phone,"act")}
       ${quick}
       ${t.notes?`<div class="meta">${esc(t.notes)}</div>`:""}
       ${decision}
@@ -771,8 +811,6 @@ function renderReminders(){
       <div class="rem-h"><svg class="bell" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
         <span>تذكير · ${ty.label}${t.time?" · "+esc(fmtTime(t.time)):""}</span><span style="margin-inline-start:auto" class="num">${lateMin<1?"الآن":lateMin<60?"منذ "+lateMin+" د":lateMin<1440?"منذ "+Math.floor(lateMin/60)+" س":"منذ "+Math.floor(lateMin/1440)+" يوم"}</span></div>
       <div class="rem-t">${esc(t.title)}</div>
-      ${t.contact?`<div class="hint">${esc(t.contact)}</div>`:""}
-      ${dialHTML(t.phone,"r")}
       <div class="rem-row"><span class="lbl">غفوة:</span>${SNOOZE.map(m=>`<button class="snz num" data-r="snooze" data-m="${m}">${m} د</button>`).join("")}</div>
       <div class="rem-row">
         <button class="btn sm primary" data-r="done">✓ تمت المهمة</button>
@@ -815,7 +853,7 @@ $("#importFile").onchange=e=>{
       if(!Array.isArray(list))throw 0;
       const byId=new Map(state.tasks.map(t=>[t.id,t]));
       let n=0; list.forEach(t=>{if(t&&t.id&&t.title){byId.set(t.id,t);n++}});
-      state.tasks=[...byId.values()]; store.saveLocal(); render();
+      state.tasks=[...byId.values()]; store.saveLocal(); list.forEach(t=>{if(t&&t.id)window.__markDirty&&window.__markDirty(t.id)}); render();
       toast("تم استرجاع "+n+" مهمة");
     }catch(err){toast("الملف غير صالح، اختر ملف نسخة احتياطية من هذا التطبيق")}
     e.target.value="";
@@ -823,8 +861,140 @@ $("#importFile").onchange=e=>{
   r.readAsText(file);
 };
 
+/* ---------- sync between devices (online database, keyed by a private sync code) ---------- */
+const sync=(()=>{
+  const SB_URL="https://liltsgeczpyhombdlliz.supabase.co", SB_KEY="sb_publishable_zj7hN2shGMwuRuV6AvQ6uQ_d0oNPPks";
+  const K={code:"agenda.sync.code",since:"agenda.sync.since",dirty:"agenda.sync.dirty",tomb:"agenda.sync.tomb"};
+  const ls={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
+  let code=ls.get(K.code,null), dirty=new Set(ls.get(K.dirty,[])), tomb=ls.get(K.tomb,{});
+  let busy=false, again=false, timer=null, lastOk=null, lastErr=false;
+
+  const markDirty=id=>{if(!id)return;dirty.add(id);ls.set(K.dirty,[...dirty]);schedule(1500)};
+  window.__markDirty=markDirty;
+
+  // record every local change so it can be sent to the other devices
+  const _add=store.add.bind(store), _upd=store.update.bind(store), _rem=store.remove.bind(store);
+  store.add=async d=>{await _add(d);const t=state.tasks[state.tasks.length-1];if(t)markDirty(t.id)};
+  store.update=async(id,p)=>{await _upd(id,p);markDirty(id)};
+  store.remove=async id=>{tomb[id]=new Date().toISOString();ls.set(K.tomb,tomb);await _rem(id);markDirty(id)};
+
+  function fmt(d){return d.toLocaleTimeString("ar-EG",{hour:"numeric",minute:"2-digit"})}
+  function status(){
+    const dot=$("#syncDot"),txt=$("#syncText"),btn=$("#syncOpen");
+    dot.className="dot"; btn.textContent=code?"إعدادات الربط":"ربط الهاتف والكمبيوتر";
+    if(!code){txt.textContent="المزامنة غير مفعّلة · المهام على هذا الجهاز فقط";return}
+    if(busy){dot.classList.add("busy");txt.textContent="جارٍ المزامنة…";return}
+    if(!navigator.onLine){dot.classList.add("busy");txt.textContent="بدون إنترنت · ستُرسل التعديلات عند عودة الاتصال"+(dirty.size?" ("+dirty.size+")":"");return}
+    if(lastErr){dot.classList.add("err");txt.textContent="تعذّرت المزامنة · سيُعاد المحاولة تلقائياً";return}
+    dot.classList.add("ok");txt.textContent="متزامن"+(lastOk?" · آخر تحديث "+fmt(lastOk):"");
+  }
+  function schedule(ms){clearTimeout(timer);if(code)timer=setTimeout(run,ms)}
+
+  function applyRows(rows){
+    let changed=false;
+    for(const r of rows){
+      r.updatedAt=new Date(r.updatedAt).toISOString();
+      if(dirty.has(r.id))continue; // local edit not yet sent wins until it is pushed
+      const i=state.tasks.findIndex(t=>t.id===r.id), cur=i>=0?state.tasks[i]:null;
+      if(r.deleted){if(cur&&(cur.updatedAt||"")<=r.updatedAt){state.tasks.splice(i,1);changed=true}continue}
+      if(tomb[r.id]&&tomb[r.id]>=r.updatedAt)continue;
+      if(!cur||(cur.updatedAt||"")<r.updatedAt){
+        const t=Object.assign({},r.data,{id:r.id});
+        if(cur)state.tasks[i]=t;else state.tasks.push(t);
+        changed=true;
+      }
+    }
+    if(changed){store.saveLocal();render()}
+  }
+
+  async function run(){
+    if(!code)return;
+    if(busy){again=true;return}
+    if(!navigator.onLine){status();return}
+    busy=true;status();
+    const sent=[...dirty];
+    const rows=sent.map(id=>{
+      const t=state.tasks.find(x=>x.id===id);
+      if(t){const d=Object.assign({},t);delete d.id;return{id,data:d,deleted:false,updatedAt:t.updatedAt||t.createdAt||new Date().toISOString()}}
+      if(tomb[id])return{id,data:null,deleted:true,updatedAt:tomb[id]};
+      return null;
+    }).filter(Boolean);
+    try{
+      const since=ls.get(K.since,null);
+      const res=await fetch(SB_URL+"/rest/v1/rpc/agenda_sync",{method:"POST",
+        headers:{"Content-Type":"application/json","apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY},
+        body:JSON.stringify({p_space:code,p_since:since,p_rows:rows})});
+      if(!res.ok)throw new Error("http "+res.status);
+      const j=await res.json();
+      sent.forEach(id=>dirty.delete(id)); ls.set(K.dirty,[...dirty]);
+      // ask again from one minute earlier next time, so nothing saved at the same moment is missed
+      ls.set(K.since,new Date(new Date(j.now).getTime()-60000).toISOString());
+      applyRows(j.rows||[]);
+      lastOk=new Date(); lastErr=false;
+    }catch(e){lastErr=true}
+    busy=false; status();
+    if(again||dirty.size&&!lastErr){again=false;schedule(500)}
+    else schedule(lastErr?20000:30000);
+  }
+
+  function newCode(){
+    const A="ABCDEFGHJKLMNPQRSTUVWXYZ23456789", b=new Uint8Array(24); crypto.getRandomValues(b);
+    return [...b].map(x=>A[x%A.length]).join("").match(/.{4}/g).join("-");
+  }
+  const norm=v=>String(v||"").toUpperCase().replace(/[^A-Z0-9]/g,"").match(/.{1,4}/g)?.join("-")||"";
+  function link(){return location.origin+location.pathname+"#sync="+code}
+  function connect(c){
+    code=c; ls.set(K.code,c); ls.del(K.since);
+    state.tasks.forEach(t=>dirty.add(t.id)); Object.keys(tomb).forEach(id=>dirty.add(id)); ls.set(K.dirty,[...dirty]);
+    showDialog(); status(); run();
+  }
+
+  function showDialog(){
+    $("#syncOn").hidden=!code; $("#syncSetup").hidden=!!code;
+    if(code)$("#syncCode").textContent=code;
+    $("#syncInput").value="";
+  }
+  function open(){showDialog();$("#syncOverlay").hidden=false}
+  function close(){$("#syncOverlay").hidden=true}
+  $("#syncOpen").onclick=open; $("#syncClose").onclick=close;
+  $("#syncOverlay").addEventListener("click",e=>{if(e.target.id==="syncOverlay")close()});
+  $("#syncCreate").onclick=()=>{connect(newCode());toast("أُنشئ كود المزامنة، أدخله على الجهاز الآخر")};
+  $("#syncJoin").onclick=()=>{
+    const c=norm($("#syncInput").value);
+    if(c.replace(/-/g,"").length!==24){toast("الكود غير مكتمل: 24 حرفاً ورقماً");return}
+    connect(c); toast("تم ربط هذا الجهاز، جارٍ جلب المهام…");
+  };
+  const copy=async(t,msg)=>{try{await navigator.clipboard.writeText(t);toast(msg)}catch(e){toast("انسخه يدوياً من المربع")}};
+  $("#syncCopyCode").onclick=()=>copy(code,"تم نسخ الكود");
+  $("#syncShare").onclick=async()=>{
+    const text="رابط ربط أجندة المتابعة اليومية: "+link();
+    if(navigator.share){try{await navigator.share({title:"أجندتي",text,url:link()});return}catch(e){if(e&&e.name==="AbortError")return}}
+    copy(link(),"تم نسخ رابط الربط، أرسله لنفسك وافتحه على الجهاز الآخر");
+  };
+  $("#syncNow").onclick=()=>{run();toast("جارٍ المزامنة…")};
+  $("#syncOff").onclick=()=>{
+    if(!confirm("إلغاء الربط على هذا الجهاز؟ تبقى المهام محفوظة هنا لكن لن تتحدث مع الأجهزة الأخرى."))return;
+    code=null; [K.code,K.since].forEach(ls.del); clearTimeout(timer); showDialog(); status(); toast("أُلغي الربط على هذا الجهاز");
+  };
+
+  function start(){
+    // a link like …#sync=CODE connects this device directly
+    const m=location.hash.match(/sync=([A-Za-z0-9-]+)/);
+    if(m){const c=norm(m[1]);history.replaceState(null,"",location.pathname+location.search);
+      if(c.replace(/-/g,"").length===24&&c!==code){
+        if(!code||confirm("ربط هذا الجهاز بالكود الجديد بدلاً من الحالي؟")){connect(c);toast("تم ربط هذا الجهاز، جارٍ جلب المهام…")}
+      }}
+    status(); if(code)run();
+    window.addEventListener("online",()=>{status();run()});
+    window.addEventListener("offline",status);
+    document.addEventListener("visibilitychange",()=>{if(!document.hidden)run()});
+  }
+  return {start,run};
+})();
+
 render();
 store.init();
+sync.start();
 })();
 </script>
 
