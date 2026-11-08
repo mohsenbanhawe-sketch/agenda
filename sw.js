@@ -1,5 +1,5 @@
 // Offline cache for the agenda app. Bump VERSION when any file changes.
-const VERSION = "agenda-v1";
+const VERSION = "agenda-v2";
 const FILES = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./icon-maskable-512.png"];
 
 self.addEventListener("install", e => {

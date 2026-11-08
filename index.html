@@ -283,7 +283,13 @@ button{cursor:pointer}
       <div class="field"><label for="fTitle">المهمة</label><input id="fTitle" required placeholder="مثال: الاتصال بالمهندس أحمد بخصوص الرسومات التنفيذية"></div>
       <div class="row2">
         <div class="field"><label for="fContact" id="fContactLbl">الشخص / الجهة</label><input id="fContact" placeholder="الاسم أو الشركة"></div>
-        <div class="field" id="wrapPhone"><label for="fPhone" id="fPhoneLbl">رقم الهاتف للاتصال</label><input id="fPhone" type="tel" inputmode="tel" dir="ltr" placeholder="01xxxxxxxxx أو ‎+9665xxxxxxxx"></div>
+        <div class="field" id="wrapPhone"><label for="fPhone" id="fPhoneLbl">رقم الهاتف للاتصال</label>
+          <div style="display:flex;gap:6px;min-width:0"><input id="fPhone" type="tel" inputmode="tel" dir="ltr" autocomplete="tel" placeholder="01xxxxxxxxx أو ‎+9665xxxxxxxx" style="flex:1;min-width:0">
+            <button type="button" class="btn sm" id="pickContact" hidden title="اختيار من جهات الاتصال"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><circle cx="12" cy="10" r="3"/><path d="M7.5 18a4.5 4.5 0 019 0"/></svg>جهات الاتصال</button>
+            <button type="button" class="btn sm" id="pastePhone" hidden title="لصق الرقم المنسوخ">لصق</button>
+          </div>
+          <div class="pills" id="telChoices" hidden></div>
+        </div>
         <div class="field" id="wrapPlace"><label for="fPlace">مكان المقابلة</label><input id="fPlace" placeholder="المكتب، الموقع، أونلاين…"></div>
       </div>
       <div class="field" id="wrapProject"><label for="fProject">المشروع</label><input id="fProject" list="projectList" placeholder="اسم المشروع"><datalist id="projectList"></datalist></div>
@@ -651,6 +657,29 @@ $("#mClose").onclick=closeForm;$("#cancelBtn").onclick=closeForm;
 $("#overlay").addEventListener("click",e=>{if(e.target.id==="overlay")closeForm()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#overlay").hidden)closeForm()});
 $("#fFollow").addEventListener("change",e=>{if(e.target.value&&!f.action){f.action="follow";syncForm()}});
+/* phone from the device: contact picker (Android Chrome) and paste (all phones) */
+const cleanTel=v=>String(v||"").replace(/[^\d+]/g,"");
+function setPhone(v){$("#fPhone").value=cleanTel(v);$("#telChoices").hidden=true}
+if("contacts" in navigator&&navigator.contacts&&navigator.contacts.select)$("#pickContact").hidden=false;
+$("#pickContact").onclick=async()=>{
+  try{
+    const res=await navigator.contacts.select(["name","tel"],{multiple:false});
+    if(!res||!res.length)return;
+    const c=res[0]; const tels=[...new Set((c.tel||[]).map(cleanTel).filter(Boolean))];
+    if(c.name&&c.name[0]&&!$("#fContact").value.trim())$("#fContact").value=c.name[0];
+    if(!tels.length){toast("جهة الاتصال لا تحتوي على رقم");return}
+    if(tels.length===1){setPhone(tels[0]);toast("تمت إضافة الرقم");return}
+    const box=$("#telChoices");
+    box.innerHTML=tels.map(t=>`<button type="button" data-tel="${esc(t)}" dir="ltr">${esc(t)}</button>`).join("");
+    box.hidden=false; toast("اختر الرقم المطلوب");
+  }catch(e){toast("تعذّر فتح جهات الاتصال")}
+};
+$("#telChoices").addEventListener("click",e=>{const b=e.target.closest("[data-tel]");if(b){setPhone(b.dataset.tel);toast("تمت إضافة الرقم")}});
+if(navigator.clipboard&&navigator.clipboard.readText)$("#pastePhone").hidden=false;
+$("#pastePhone").onclick=async()=>{
+  try{const t=cleanTel(await navigator.clipboard.readText());if(t.replace("+","").length>=5){setPhone(t);toast("تم لصق الرقم")}else toast("لا يوجد رقم منسوخ")}
+  catch(e){$("#fPhone").focus();toast("اضغط مطولاً داخل الخانة واختر لصق")}
+};
 $("#delBtn").onclick=()=>{$("#delConfirm").hidden=false;$("#delConfirm").scrollIntoView({block:"nearest"})};
 $("#delNo").onclick=()=>{$("#delConfirm").hidden=true};
 $("#delYes").onclick=async()=>{if(editing&&await safe(()=>store.remove(editing.id),"حُذفت المهمة"))closeForm()};
