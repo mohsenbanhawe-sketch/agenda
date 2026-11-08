@@ -363,6 +363,14 @@ button{cursor:pointer}
         <div class="field"><label for="fPriority">الأولوية</label>
           <select id="fPriority"><option value="normal">عادية</option><option value="high">مهمة</option><option value="urgent">عاجلة</option></select></div>
       </div>
+      <div class="field"><label for="fRepeat">التكرار</label>
+        <select id="fRepeat">
+          <option value="none">لا تتكرر</option>
+          <option value="weekly">أسبوعياً (نفس اليوم كل أسبوع)</option>
+          <option value="monthly">شهرياً (نفس التاريخ كل شهر)</option>
+          <option value="yearly">سنوياً (نفس التاريخ كل سنة)</option>
+        </select>
+        <span class="hint" id="repeatHint">تظهر المرة التالية تلقائياً في موعدها، حتى لو لم تنتهِ هذه المرة.</span></div>
       <div class="field"><label for="fRemind">التذكير إذا لم تنتهِ المهمة</label>
         <select id="fRemind">
           <option value="at">عند موعد المهمة</option>
@@ -638,6 +646,7 @@ function cardHTML(t){
   const meta=[];
   if(state.carryMode||t.date!==state.date)meta.push(`<span>📅 ${esc(fmtDate(t.date))}</span>`);
   if(t.carriedFrom&&t.carriedFrom!==t.date)meta.push(`<span style="color:var(--warn)">↪ مُرحّلة من ${esc(fmtDate(t.carriedFrom))}${t.carryCount>1?" · "+t.carryCount+" مرات":""}${done&&noDecision(t)?" · تنتظر قرارك":""}</span>`);
+  if(REPEAT[t.repeat])meta.push(`<span style="color:var(--accent)">🔁 ${REPEAT[t.repeat]}</span>`);
   if(t.time)meta.push(`<span class="num">🕘 ${esc(fmtTime(t.time))}</span>`);
   if(!done&&remindOn(t)){
     const sz=t.snoozeUntil&&new Date(t.snoozeUntil)>new Date();
@@ -684,7 +693,7 @@ $("#list").addEventListener("click",async e=>{
   if(act==="edit")openForm(t);
   if(act==="toggle")safe(()=>store.update(t.id,{status:t.status==="done"?"pending":"done"}),t.status==="done"?"أُعيدت إلى معلقة":"تم إنهاء المهمة");
   if(act==="result"){const v=t.callResult===b.dataset.v?null:b.dataset.v;const patch={callResult:v};if(v==="answered"&&t.status!=="done")patch.status="done";safe(()=>store.update(t.id,patch),v?RESULTS[v].label:"")}
-  if(act==="dup"){const c=Object.assign({},t);delete c.id;c.date=addDays(today(),1);c.status="pending";c.callResult=null;c.decision="";c.action=null;c.followUp=null;c.snoozeUntil=null;c.reminderOff=false;safe(()=>store.add(c),"نُسخت إلى الغد")}
+  if(act==="dup"){const c=Object.assign({},t);delete c.id;c.date=addDays(today(),1);c.status="pending";c.callResult=null;c.decision="";c.action=null;c.followUp=null;c.snoozeUntil=null;c.reminderOff=false;c.repeat=null;c.repeatBase=null;c.seriesId=null;c.nextId=null;c.carriedFrom=null;c.carryCount=0;safe(()=>store.add(c),"نُسخت إلى الغد")}
 });
 
 /* ---------- toolbar ---------- */
@@ -734,7 +743,7 @@ function openForm(t){
   $("#fTitle").value=t?t.title||"":""; $("#fContact").value=t?t.contact||"":""; $("#fPhone").value=t?t.phone||"":"";
   $("#fPlace").value=t?t.place||"":""; $("#fProject").value=t?t.project||"":"";
   $("#fDate").value=t?t.date:state.date; $("#fTime").value=t?t.time||"":""; $("#fPriority").value=t?t.priority||"normal":"normal";
-  $("#fRemind").value=t?(t.remind||"at"):"at";
+  $("#fRemind").value=t?(t.remind||"at"):"at"; $("#fRepeat").value=t&&REPEAT[t.repeat]?t.repeat:"none";
   $("#fNotes").value=t?t.notes||"":""; $("#fDecision").value=t?t.decision||"":""; $("#fFollow").value=t?t.followUp||"":""; $("#fAutoFollow").checked=false;
   $("#delBtn").hidden=!t; $("#delConfirm").hidden=true; $("#contactHelp").hidden=true; $("#telChoices").hidden=true;
   syncForm(); $("#overlay").hidden=false; setTimeout(()=>$("#fTitle").focus(),30);
@@ -794,8 +803,17 @@ $("#taskForm").addEventListener("submit",async e=>{
     place:f.type==="meeting"?$("#fPlace").value.trim():"",
     work:f.type==="project"?f.work:null,
     action:f.action,decision:$("#fDecision").value.trim(),followUp:$("#fFollow").value||null,
-    remind:$("#fRemind").value,snoozeUntil:null,reminderOff:false
+    remind:$("#fRemind").value,snoozeUntil:null,reminderOff:false,
+    repeat:$("#fRepeat").value
   };
+  if(data.repeat==="none"){data.repeat=null}
+  else{
+    // keep the series' own schedule when the date was not changed (e.g. a carried task)
+    data.repeatBase=editing&&editing.repeatBase&&data.date===editing.date?editing.repeatBase:data.date;
+    data.repeatDay=data.repeatBase===(editing&&editing.repeatBase)&&editing.repeatDay||Number(data.repeatBase.slice(8,10));
+    data.seriesId=editing&&editing.seriesId||("s"+Date.now().toString(36)+Math.random().toString(36).slice(2,6));
+    if(editing&&(editing.repeat!==data.repeat||editing.repeatBase!==data.repeatBase))data.nextId=null;
+  }
   const btn=$("#saveBtn"); btn.disabled=true;
   const ok=await safe(()=>editing?store.update(editing.id,data):store.add(data),editing?"تم حفظ التعديلات":"أُضيفت المهمة");
   if(ok&&$("#fAutoFollow").checked&&data.followUp){
@@ -869,7 +887,37 @@ $("#reminders").addEventListener("click",e=>{
 });
 setInterval(renderReminders,20000);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)renderReminders()});
-const _render=render; render=function(){_render();renderReminders();queueAutoCarry()};
+const _render=render; render=function(){_render();renderReminders();queueAutoCarry();setTimeout(ensureRepeats,300)};
+const REPEAT={weekly:"أسبوعياً",monthly:"شهرياً",yearly:"سنوياً"};
+const pad2=n=>String(n).padStart(2,"0");
+function nextDate(base,rep,day){
+  const [y,m,d0]=base.split("-").map(Number); const d=day||d0;
+  if(rep==="weekly"){const dt=new Date(y,m-1,d0+7);return dt.getFullYear()+"-"+pad2(dt.getMonth()+1)+"-"+pad2(dt.getDate())}
+  let ny=y,nm=m; if(rep==="monthly"){nm=m+1;if(nm>12){nm=1;ny++}}else ny=y+1;
+  const last=new Date(ny,nm,0).getDate(); // same day, or the last day of a shorter month
+  return ny+"-"+pad2(nm)+"-"+pad2(Math.min(d,last));
+}
+let repeatBusy=false;
+async function ensureRepeats(){
+  if(repeatBusy||readOnly||store.mode==="loading")return;
+  const td=today();
+  const due=state.tasks.filter(t=>REPEAT[t.repeat]&&!t.nextId&&(t.repeatBase||t.date)&&((t.repeatBase||t.date)<=td||t.status==="done"));
+  if(!due.length)return;
+  repeatBusy=true; let made=0;
+  try{
+    for(const t of due){
+      const base=t.repeatBase||t.date; const day=t.repeatDay||Number(base.slice(8,10)); let nd=nextDate(base,t.repeat,day); while(nd<td)nd=nextDate(nd,t.repeat,day); const series=t.seriesId||t.id, id=series+"_"+nd;
+      if(!state.tasks.some(x=>x.id===id)){
+        const n=Object.assign({},t,{id,date:nd,repeatBase:nd,repeatDay:day,seriesId:series,nextId:null,status:"pending",callResult:null,action:null,decision:"",followUp:null,snoozeUntil:null,reminderOff:false,carriedFrom:null,carryCount:0});
+        delete n.createdAt; delete n.updatedAt;
+        await store.add(n); made++;
+      }
+      await store.update(t.id,{nextId:id,seriesId:series});
+    }
+  }catch(e){}
+  repeatBusy=false;
+  if(made)render();
+}
 let autoCarry=true; try{autoCarry=localStorage.getItem("agenda.autoCarry")!=="off"}catch(e){}
 let carryBusy=false, carryTimer=null, lastDay=today();
 function queueAutoCarry(){
@@ -1055,6 +1103,7 @@ try{if(matchMedia("(min-width:761px)").matches)$("#statsBox").open=true}catch(e)
 render();
 store.init();
 sync.start();
+try{if(new URLSearchParams(location.search).get("new")==="1"){history.replaceState(null,"",location.pathname);setTimeout(()=>openForm(null),400)}}catch(e){}
 })();
 </script>
 
