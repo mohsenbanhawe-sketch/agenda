@@ -242,6 +242,8 @@ button{cursor:pointer}
 .calbox ol{margin:0;padding-inline-start:20px;display:grid;gap:4px}
 .notifbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;border-radius:12px;background:var(--accent-soft);color:var(--fg);font-size:13px}
 .notifbar #notifText{flex:1;min-width:150px}
+.tmrw{border:1px solid color-mix(in srgb,var(--warn) 45%,transparent);background:var(--warn-soft);color:var(--warn);border-radius:999px;padding:4px 10px;font-size:.78rem;font-weight:600;white-space:nowrap;cursor:pointer}
+.tmrw:hover{filter:brightness(.97)}
 </style>
 </head>
 <body>
@@ -580,6 +582,8 @@ function toast(m){const t=$("#toast");t.textContent=m;t.hidden=false;clearTimeou
 
 /* ---------- render ---------- */
 function dayTasks(d){return state.tasks.filter(t=>t.date===d)}
+function moveTomorrow(t){const td=today();const base=t.date&&t.date>td?t.date:td;const nd=addDays(base,1);
+  return store.update(t.id,{date:nd,carriedFrom:t.carriedFrom||t.date,carryCount:(t.carryCount||0)+1,snoozeUntil:null,reminderOff:false}).then(()=>nd)}
 const noDecision=t=>!String(t.decision||"").trim();
 function needsCarry(t){return t.status!=="done"||noDecision(t)}
 function carryTasks(){const td=today();return state.tasks.filter(t=>t.date&&t.date<td&&needsCarry(t))}
@@ -707,6 +711,7 @@ function cardHTML(t){
     </div>
     <div class="t-side">
       <button class="status ${done?"done":"pending"}" data-act="toggle" title="تغيير الحالة">${done?"✓ انتهت":"● معلقة"}</button>
+      ${!done||noDecision(t)?`<button class="tmrw" data-act="tomorrow" title="نقل المهمة إلى اليوم التالي">رحّل للغد ↩</button>`:""}
       <div class="icon-btns">
         <button data-act="edit" aria-label="تعديل"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg></button>
         <button data-act="dup" aria-label="نسخ إلى الغد"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg></button>
@@ -727,6 +732,7 @@ $("#list").addEventListener("click",async e=>{
   if(act==="edit")openForm(t);
   if(act==="toggle")safe(()=>store.update(t.id,{status:t.status==="done"?"pending":"done"}),t.status==="done"?"أُعيدت إلى معلقة":"تم إنهاء المهمة");
   if(act==="result"){const v=t.callResult===b.dataset.v?null:b.dataset.v;const patch={callResult:v};if(v==="answered"&&t.status!=="done")patch.status="done";safe(()=>store.update(t.id,patch),v?RESULTS[v].label:"")}
+  if(act==="tomorrow"){safe(()=>moveTomorrow(t).then(nd=>toast("رُحّلت إلى "+fmtDate(nd))))}
   if(act==="dup"){const c=Object.assign({},t);delete c.id;c.date=addDays(today(),1);c.status="pending";c.callResult=null;c.decision="";c.action=null;c.followUp=null;c.snoozeUntil=null;c.reminderOff=false;c.repeat=null;c.repeatBase=null;c.seriesId=null;c.nextId=null;c.carriedFrom=null;c.carryCount=0;safe(()=>store.add(c),"نُسخت إلى الغد")}
 });
 
@@ -904,6 +910,7 @@ function renderReminders(){
       <div class="rem-row"><span class="lbl">غفوة:</span>${SNOOZE.map(m=>`<button class="snz num" data-r="snooze" data-m="${m}">${m} د</button>`).join("")}</div>
       <div class="rem-row">
         <button class="btn sm primary" data-r="done">✓ تمت المهمة</button>
+        <button class="btn sm" data-r="tomorrow">رحّل للغد</button>
         <button class="btn sm" data-r="open">فتح</button>
         <button class="btn sm" data-r="off" title="إيقاف التذكير لهذه المهمة">إيقاف التذكير</button>
       </div></div>`;
@@ -916,6 +923,7 @@ $("#reminders").addEventListener("click",e=>{
   if(r==="copy"){copyNum(b);return}
   if(r==="snooze"){const m=Math.min(30,Number(b.dataset.m)||5);safe(()=>store.update(t.id,{snoozeUntil:new Date(Date.now()+m*60000).toISOString()}),"سيتم تذكيرك بعد "+m+" دقيقة").then(renderReminders)}
   if(r==="done")safe(()=>store.update(t.id,{status:"done",snoozeUntil:null}),"تم إنهاء المهمة").then(renderReminders);
+  if(r==="tomorrow")safe(()=>moveTomorrow(t).then(nd=>toast("رُحّلت إلى "+fmtDate(nd)))).then(renderReminders);
   if(r==="off")safe(()=>store.update(t.id,{reminderOff:true}),"أُوقف التذكير لهذه المهمة").then(renderReminders);
   if(r==="open"){state.date=t.date;state.carryMode=false;render();openForm(t)}
 });
