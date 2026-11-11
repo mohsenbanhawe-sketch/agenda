@@ -240,6 +240,8 @@ button{cursor:pointer}
 .calbox{border-top:1px solid var(--line);padding-top:12px;display:grid;gap:8px}
 .calbox h3{margin:0;font-size:1rem}
 .calbox ol{margin:0;padding-inline-start:20px;display:grid;gap:4px}
+.notifbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;border-radius:12px;background:var(--accent-soft);color:var(--fg);font-size:13px}
+.notifbar #notifText{flex:1;min-width:150px}
 </style>
 </head>
 <body>
@@ -265,6 +267,11 @@ button{cursor:pointer}
     <button class="btn sm" id="syncOpen" type="button">ربط الهاتف والكمبيوتر</button>
   </div>
 
+  <div class="notifbar" id="notifBar" hidden>
+    <span>🔔</span><span id="notifText">فعّل إشعارات التذكير لتصلك التنبيهات بصوت حتى والتطبيق مغلق.</span>
+    <button class="btn sm primary" type="button" id="notifEnable">تفعيل الإشعارات</button>
+    <button class="btn sm" type="button" id="notifLater" aria-label="لاحقاً">لاحقاً</button>
+  </div>
   <section class="kpis" aria-label="ملخص اليوم">
     <div class="kpi"><div class="ico" style="background:var(--accent-soft);color:var(--accent)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></div><div><div class="v num" id="kTotal">0</div><div class="l">مهام اليوم</div></div></div>
     <div class="kpi"><div class="ico" style="background:var(--ok-soft);color:var(--ok)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l5 5 9-10"/></svg></div><div><div class="v num" id="kDone">0</div><div class="l">منتهية</div></div></div>
@@ -430,6 +437,15 @@ button{cursor:pointer}
           <button class="btn sm" type="button" id="syncNow">مزامنة الآن</button>
         </div>
         <p class="hint">احتفظ بالكود لنفسك: من يعرفه يستطيع رؤية مهامك.</p>
+        <div class="calbox">
+          <h3>🔔 إشعارات التذكير</h3>
+          <p id="notifState">—</p>
+          <div class="row-btns">
+            <button class="btn sm primary" type="button" id="notifEnable2">تفعيل الإشعارات على هذا الجهاز</button>
+            <button class="btn sm" type="button" id="notifTest">تجربة إشعار</button>
+          </div>
+          <p class="hint">يصلك الإشعار في موعد تذكير المهمة بصوت إشعارات الهاتف، وفيه زرّا «غفوة 10 دقائق» و«تمت». فعّلها على كل جهاز تريد أن يصلك عليه التنبيه.</p>
+        </div>
         <div class="calbox">
           <h3>📅 إظهار المهام في تقويم الهاتف</h3>
           <p>تظهر مهامك بتواريخها وأوقاتها داخل تقويم Google، وبالتالي في أداة التقويم على الشاشة الرئيسية.</p>
@@ -1071,7 +1087,7 @@ const sync=(()=>{
   function connect(c){
     code=c; ls.set(K.code,c); ls.del(K.since);
     state.tasks.forEach(t=>dirty.add(t.id)); Object.keys(tomb).forEach(id=>dirty.add(id)); ls.set(K.dirty,[...dirty]);
-    showDialog(); status(); run();
+    showDialog(); status(); run(); subscribePush(false).catch(()=>{}).finally(notifUI);
   }
 
   function showDialog(){
@@ -1079,7 +1095,7 @@ const sync=(()=>{
     if(code)$("#syncCode").textContent=code;
     $("#syncInput").value="";
   }
-  function open(){showDialog();$("#syncOverlay").hidden=false}
+  function open(){showDialog();notifUI();$("#syncOverlay").hidden=false}
   function close(){$("#syncOverlay").hidden=true}
   $("#syncOpen").onclick=open; $("#syncClose").onclick=close;
   $("#syncOverlay").addEventListener("click",e=>{if(e.target.id==="syncOverlay")close()});
@@ -1102,10 +1118,56 @@ const sync=(()=>{
     window.open("https://calendar.google.com/calendar/r?cid="+encodeURIComponent(webcal),"_blank","noopener");
   };
   $("#calCopy").onclick=()=>copy(feedUrl(),"تم نسخ رابط التقويم");
+  // ---- reminder notifications (Web Push) ----
+  const VAPID="BFOPywgoaoTKtXideVhkf-m3p13lCEUmnFopAtwgIFKfzujf-UxsNsr4sD8Ql2R6WlxXoRRw3n_G89ip-cjVBmA";
+  const pushOk=()=>"serviceWorker" in navigator&&"PushManager" in window&&"Notification" in window;
+  const b64=v=>{const p="=".repeat((4-v.length%4)%4);const r=atob((v+p).replace(/-/g,"+").replace(/_/g,"/"));return Uint8Array.from([...r].map(c=>c.charCodeAt(0)))};
+  const rpcCall=(name,body)=>fetch(SB_URL+"/rest/v1/rpc/"+name,{method:"POST",headers:{"Content-Type":"application/json",apikey:SB_KEY,Authorization:"Bearer "+SB_KEY},body:JSON.stringify(body)}).then(r=>{if(!r.ok)throw new Error("http "+r.status);return r.json()});
+  let subscribed=false;
+  async function subscribePush(ask){
+    if(!pushOk()||!code)return false;
+    if(Notification.permission==="denied")return false;
+    if(Notification.permission!=="granted"){if(!ask)return false;const p=await Notification.requestPermission();if(p!=="granted")return false}
+    const reg=await navigator.serviceWorker.ready;
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64(VAPID)});
+    let tz="Africa/Cairo";try{tz=Intl.DateTimeFormat().resolvedOptions().timeZone||tz}catch(e){}
+    await rpcCall("agenda_push_subscribe",{p_space:code,p_sub:sub.toJSON(),p_tz:tz});
+    subscribed=true; return true;
+  }
+  async function unsubscribePush(){
+    try{const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();
+      if(sub){await rpcCall("agenda_push_unsubscribe",{p_endpoint:sub.endpoint}).catch(()=>{});await sub.unsubscribe()}}catch(e){}
+    subscribed=false;
+  }
+  function notifUI(){
+    const bar=$("#notifBar"), st=$("#notifState"), en=$("#notifEnable2");
+    let later=false;try{later=localStorage.getItem("agenda.notif.later")===today()}catch(e){}
+    if(!pushOk()){st.textContent="هذا المتصفح لا يدعم الإشعارات. افتح التطبيق من Google Chrome وثبّته.";en.hidden=true;bar.hidden=true;return}
+    const perm=Notification.permission;
+    if(!code){bar.hidden=true;st.textContent="فعّل الربط أولاً.";return}
+    if(perm==="denied"){st.textContent="الإشعارات محظورة لهذا التطبيق. افتح إعدادات الهاتف ← التطبيقات ← Chrome (أو أجندتي) ← الإشعارات، واسمح بها.";en.hidden=true;bar.hidden=true;return}
+    if(perm==="granted"&&subscribed){st.textContent="✅ الإشعارات مفعّلة على هذا الجهاز.";en.hidden=true;bar.hidden=true;return}
+    st.textContent="الإشعارات غير مفعّلة على هذا الجهاز."; en.hidden=false; bar.hidden=later;
+  }
+  async function enableNotif(){
+    try{const ok=await subscribePush(true);toast(ok?"تم تفعيل إشعارات التذكير":"لم يتم السماح بالإشعارات")}
+    catch(e){toast("تعذّر تفعيل الإشعارات، تأكد من الاتصال بالإنترنت")}
+    notifUI();
+  }
+  $("#notifEnable").onclick=enableNotif; $("#notifEnable2").onclick=enableNotif;
+  $("#notifLater").onclick=()=>{try{localStorage.setItem("agenda.notif.later",today())}catch(e){};notifUI()};
+  $("#notifTest").onclick=async()=>{
+    if(!pushOk()){toast("الإشعارات غير مدعومة هنا");return}
+    if(Notification.permission!=="granted"){const p=await Notification.requestPermission();if(p!=="granted"){toast("لم يتم السماح بالإشعارات");notifUI();return}}
+    const reg=await navigator.serviceWorker.ready;
+    await reg.showNotification("🔔 تجربة تذكير",{body:"هكذا سيصلك تذكير المهمة في موعدها",tag:"agenda-test",renotify:true,silent:false,vibrate:[300,150,300],dir:"rtl",lang:"ar",icon:"icon-192.png",badge:"icon-192.png"});
+  };
+  if("serviceWorker" in navigator)navigator.serviceWorker.addEventListener("message",e=>{if(e.data&&e.data.type==="agenda-sync")run()});
   $("#syncNow").onclick=()=>{run();toast("جارٍ المزامنة…")};
   $("#syncOff").onclick=()=>{
     if(!confirm("إلغاء الربط على هذا الجهاز؟ تبقى المهام محفوظة هنا لكن لن تتحدث مع الأجهزة الأخرى."))return;
-    code=null; [K.code,K.since].forEach(ls.del); clearTimeout(timer); showDialog(); status(); toast("أُلغي الربط على هذا الجهاز");
+    unsubscribePush().finally(notifUI); code=null; [K.code,K.since].forEach(ls.del); clearTimeout(timer); showDialog(); status(); toast("أُلغي الربط على هذا الجهاز");
   };
 
   function start(){
@@ -1116,6 +1178,7 @@ const sync=(()=>{
         if(!code||confirm("ربط هذا الجهاز بالكود الجديد بدلاً من الحالي؟")){connect(c);toast("تم ربط هذا الجهاز، جارٍ جلب المهام…")}
       }}
     status(); if(code)run();
+    notifUI(); if(code)subscribePush(false).catch(()=>{}).finally(notifUI);
     window.addEventListener("online",()=>{status();run()});
     window.addEventListener("offline",status);
     document.addEventListener("visibilitychange",()=>{if(!document.hidden)run()});
